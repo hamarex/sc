@@ -1,0 +1,11 @@
+{
+  "id": "2023h-pm2",
+  "kind": "pm2",
+  "label": "午後II(記述式)",
+  "timeLimitMin": 120,
+  "maxScore": 100,
+  "selectRule": "問1、問2から1問選択",
+  "requiredNos": [],
+  "chooseCount": 1,
+  "problems": []
+}

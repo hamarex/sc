@@ -1,0 +1,11 @@
+{
+  "id": "2023a-pm",
+  "kind": "pm",
+  "label": "午後(記述式)",
+  "timeLimitMin": 150,
+  "maxScore": 100,
+  "selectRule": "問1〜問4から2問選択",
+  "requiredNos": [],
+  "chooseCount": 2,
+  "problems": []
+}

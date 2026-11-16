@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>情報処理安全確保支援士 学習アプリ</title>
+<style>
+:root { --bg:#f6f7f9; --card:#fff; --fg:#1f2430; --mute:#667; --line:#dde1e8; --pri:#2557c9; --ok:#1a7f45; --ng:#c0262d; --key:#d4141c; --trap:#d96a00; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.8 -apple-system,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif; }
+#app { max-width:860px; margin:0 auto; padding:16px; }
+h1 { font-size:1.4rem; margin:.2em 0 .6em; } h2 { font-size:1.2rem; margin:1em 0 .4em; } h3 { font-size:1.08rem; margin:1em 0 .3em; } h4 { font-size:1.02rem; margin:.9em 0 .2em; border-left:4px solid var(--pri); padding-left:.5em; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 18px; margin:12px 0; overflow-wrap:anywhere; }
+.warn { background:#fff3cd; border:1px solid #e0b100; color:#5b4400; padding:10px 14px; border-radius:8px; margin:8px 0; }
+.ok { color:var(--ok); } .ng { color:var(--ng); } .mute { color:var(--mute); font-size:.9rem; }
+button { font:inherit; padding:.5em 1.1em; border:1px solid var(--pri); background:var(--pri); color:#fff; border-radius:8px; cursor:pointer; margin:4px 6px 4px 0; }
+button.sub { background:#fff; color:var(--pri); } button.small { font-size:.85rem; padding:.2em .7em; }
+button:disabled { opacity:.45; cursor:default; }
+button.sel, .choice.sel { outline:3px solid #f0b400; }
+.row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.bar { height:12px; background:#e5e8ee; border-radius:6px; overflow:hidden; } .bar > div { height:100%; background:var(--pri); }
+.chap { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; border-top:1px solid var(--line); padding:8px 0; } .chap:first-child { border-top:0; }
+.tag { font-size:.8rem; padding:1px 8px; border-radius:10px; border:1px solid var(--line); margin-left:6px; }
+.tag.done { color:var(--ok); border-color:var(--ok); } .tag.prog { color:var(--pri); border-color:var(--pri); } .tag.lock { color:var(--mute); }
+.pbar { height:4px; background:#e5e8ee; border-radius:2px; overflow:hidden; margin:4px 0 8px; } .pbar > div { height:100%; background:var(--pri); }
+.nav { display:flex; gap:8px; margin:12px 0; } .nav button { flex:1; margin:0; padding:.7em 1em; }
+details { margin:8px 0; } summary { cursor:pointer; }
+.lesson { overflow-wrap:anywhere; }
+b.key { color:var(--key); font-weight:800; }
+.trap { color:var(--trap); font-weight:700; background:#fff4e5; padding:0 3px; border-radius:3px; }
+.note { background:#f1f8ff; border-left:4px solid #6aa5e0; padding:6px 12px; margin:8px 0; border-radius:4px; }
+.blank { display:inline-block; min-width:2.5em; border-bottom:2px solid var(--pri); text-align:center; font-weight:700; }
+table { border-collapse:collapse; display:block; overflow-x:auto; max-width:100%; margin:8px 0; }
+table td, table th { border:1px solid var(--line); padding:3px 8px; vertical-align:top; } table th { background:#eef1f7; }
+pre { overflow-x:auto; max-width:100%; margin:8px 0; padding:8px 12px; border-radius:6px; background:#f3f4f7; border:1px solid var(--line); font:.88rem/1.5 ui-monospace,Menlo,Consolas,"Courier New",monospace; }
+pre.code { background:#1f2430; color:#eef1f7; border-color:#1f2430; }
+pre.fig { background:#fbfbf4; line-height:1.3; }
+.q { font-size:1.05rem; }
+.choice { display:flex; gap:.6em; align-items:flex-start; width:100%; text-align:left; background:#fff; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:.4em .8em; margin:6px 0; cursor:pointer; }
+.choice .lb { font-weight:700; color:var(--pri); flex:none; } .choice .cb { flex:1; min-width:0; overflow-x:auto; } .choice .cb p { margin:0; }
+.choice.right { background:#e4f6ea; border-color:var(--ok); } .choice.wrong { background:#fde8e9; border-color:var(--ng); } .choice.locked { cursor:default; }
+.oxrow { display:flex; gap:8px; } .oxrow .choice { justify-content:center; font-size:1.3rem; }
+.explain { background:#f3f6fc; border-radius:8px; padding:8px 14px; margin-top:8px; } .explain p { margin:.4em 0; } .explain ul { margin:.2em 0; padding-left:1.4em; }
+.src { color:var(--mute); font-size:.9rem; }
+textarea { width:100%; font:inherit; padding:8px; border:1px solid var(--line); border-radius:8px; min-height:5.5em; }
+.stick { position:sticky; top:0; background:var(--bg); padding:6px 0; z-index:5; border-bottom:1px solid var(--line); }
+.mine { white-space:pre-wrap; background:#fffdf3; border:1px solid #eadf9e; border-radius:6px; padding:6px 10px; }
+label.kp { display:block; padding:2px 0; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="data.js"></script>
+<script src="logic.js"></script>
+<script>
+(function () {
+  'use strict';
+  var L = window.Logic, DATA = window.DATA || { chapters: [], exams: [] };
+  var IX = L.indexData(DATA), esc = L.escapeHtml;
+  var root = document.getElementById('app');
+  var P, storageOk = true, storage = null, saveFailed = false, notice = '';
+  var view = { name: 'home' }, sessionPages = 0, timerHandle = null;
+  var PAGES_PER_BREAK = 6;
+
+  // ---------- 保存 ----------
+  try { storage = window.localStorage; } catch (e) { storage = null; }
+  if (storage) { var r0 = L.loadProgress(storage); P = r0.progress; storageOk = r0.ok; }
+  else { P = L.emptyProgress(); storageOk = false; }
+  function save() { if (!storage || !L.saveProgress(storage, P)) saveFailed = true; }
+  function update(np) { P = np; save(); }
+
+  // ---------- 共通 ----------
+  function chapter(no) { return IX.chapterByNo[no]; }
+  function isDone(id) { return P.lessonsDone.indexOf(id) >= 0; }
+  function go(v) { view = v; render(); window.scrollTo(0, 0); }
+  function keepScroll() { var y = window.scrollY; render(); window.scrollTo(0, y); }
+  function pct(x) { return Math.round(x * 100); }
+  function stamp() { var d = new Date(); return d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2); }
+  function fmtDate(ts) { var d = new Date(ts); return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function reportBtn(id) { return '<button class="small sub" data-act="report" data-id="' + esc(id) + '">間違いをメモ</button>'; }
+  function parseVal(v) { return v === 'true' ? true : v === 'false' ? false : parseInt(v, 10); }
+  function download(name, text) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  function setTimer(fn) {
+    if (timerHandle) clearInterval(timerHandle);
+    timerHandle = setInterval(function () {
+      var el = document.getElementById('timer');
+      if (!el || (view.name !== 'mockrun' && view.name !== 'pmrun')) { clearInterval(timerHandle); timerHandle = null; return; }
+      el.innerHTML = fn();
+    }, 1000);
+  }
+  function timerHtml(t0, limitMin) {
+    var rem = L.remainingSec(t0, Date.now(), limitMin);
+    return '経過 ' + L.formatElapsed((Date.now() - t0) / 1000) + ' / ' + (rem >= 0 ? '残り ' + L.formatElapsed(rem) : '<span class="ng">制限時間超過 ' + L.formatElapsed(-rem) + '</span>');
+  }
+
+  // ---------- 問題の描画(ox / mc4 共通) ----------
+  function isOx(q) { return q.type === 'ox'; }
+  function gradeAny(q, v) { return isOx(q) ? L.gradeOx(q, v).correct : L.gradeMc(q, v).correct; }
+  function choiceHtml(q, picked, showResult, act, extra) {
+    var h = '';
+    if (isOx(q)) {
+      h += '<div class="oxrow">';
+      [[true, '○'], [false, '×']].forEach(function (p) { h += choiceDiv(p[1], p[0], q, picked, showResult, act, extra, true); });
+      return h + '</div>';
+    }
+    q.choices.forEach(function (c, k) { h += choiceDiv('<span class="lb">' + L.choiceLabel(k) + '</span><div class="cb">' + c + '</div>', k + 1, q, picked, showResult, act, extra, false); });
+    return h;
+  }
+  function choiceDiv(inner, val, q, picked, showResult, act, extra, plainLabel) {
+    var cls = 'choice';
+    if (showResult) { if (gradeCorrectVal(q, val)) cls += ' right'; else if (picked === val) cls += ' wrong'; cls += ' locked'; }
+    else if (picked === val) cls += ' sel';
+    return '<div class="' + cls + '" role="button" tabindex="0" data-act="' + act + '" data-v="' + val + '"' + (extra || '') + '>' + (plainLabel ? inner : inner) + '</div>';
+  }
+  function gradeCorrectVal(q, val) { return isOx(q) ? val === q.answer : (val === q.answer || (q.altAnswers || []).indexOf(val) >= 0 || !!q.voided); }
+  function qBody(q) { return '<div class="q">' + (isOx(q) ? q.text : q.stem) + '</div>'; }
+  function answerText(q) { return isOx(q) ? (q.answer ? '○' : '×') : L.choiceLabel(q.answer - 1); }
+  function sourceHtml(q) { return q.sourceExam ? '<div class="src">出典: ' + esc(L.sourceLabel(DATA, q.sourceExam)) + (q.sourceExam.kindOfUse === 'adapted' ? '(一部改変)' : '') + '</div>' : ''; }
+  function flagsHtml(q) { return (q.voided ? '<p class="mute">この問は全員正解として扱われました。</p>' : '') + (q.figLossy ? '<p class="mute">図の一部を省略しています。</p>' : ''); }
+  function resultBlock(q, picked) {
+    var ok = gradeAny(q, picked);
+    return '<h3 class="' + (ok ? 'ok' : 'ng') + '">' + (ok ? '正解' : '不正解') + '(正解: ' + answerText(q) + ')</h3>' + flagsHtml(q) +
+      '<div class="explain">' + L.explainToHtml(q) + '</div>' + sourceHtml(q) + '<p>' + reportBtn(q.id) + '</p>';
+  }
+
+  // ---------- ホーム ----------
+  function homeView() {
+    var tot = 0, dn = 0;
+    DATA.chapters.forEach(function (c) { tot += c.lessons.length; dn += L.chapterProgress(P, c).done; });
+    var h = '<h1>情報処理安全確保支援士 学習アプリ</h1>';
+    h += '<div class="card"><div class="row"><b>全体の進捗</b><span class="mute">レッスン ' + dn + ' / ' + tot + '</span></div>';
+    h += '<div class="bar"><div style="width:' + (tot ? Math.round(dn * 100 / tot) : 0) + '%"></div></div>';
+    var cont = L.continueTarget(P, DATA);
+    h += cont ? '<p><button data-act="continue">続きから(' + esc(cont.label) + ')</button></p>' : '<p class="mute">続きから進めるレッスンはありません(全章の学習が完了、またはロック中)。</p>';
+    h += '</div><div class="card"><h2>章一覧</h2>';
+    DATA.chapters.forEach(function (c) {
+      var unlocked = L.isChapterUnlocked(P, c.no), cp = L.chapterProgress(P, c);
+      var tag = !unlocked ? '<span class="tag lock">ロック</span>' : (cp.testPassed ? '<span class="tag done">完了</span>' : (cp.done > 0 || (P.position && P.position.ch === c.no) ? '<span class="tag prog">進行中</span>' : ''));
+      h += '<div class="chap"><div>第' + c.no + '章 ' + esc(c.title) + tag + '<div class="mute">レッスン ' + cp.done + '/' + cp.total + (cp.testScore !== null ? '　仕上げ問題 ' + pct(cp.testScore) + '%' + (cp.testPassed ? '(合格)' : '(不合格)') : '') + '</div></div><div>';
+      h += unlocked ? '<button data-act="chapter" data-ch="' + c.no + '">' + (cp.done ? '章メニュー' : '始める') + '</button>' : '<span class="mute">前の章の仕上げ問題に合格すると開きます</span>';
+      h += '</div></div>';
+    });
+    h += '</div><div class="card"><h2>その他</h2><div class="row"><button data-act="mock">模試(過去問8回分)</button>';
+    h += '<button class="sub" data-act="review">復習(間違えた問題 ' + L.reviewIds(P, DATA, IX).length + ' 問)</button>';
+    h += '<button class="sub" data-act="reports">間違いメモ(' + P.reports.length + '件)</button><button class="sub" data-act="settings">設定</button></div></div>';
+    return h;
+  }
+
+  // ---------- 章メニュー ----------
+  function chapterView() {
+    var c = chapter(view.ch);
+    if (!c) return '<div class="card">章が見つかりません。</div><button data-act="home">ホームへ</button>';
+    var cp = L.chapterProgress(P, c);
+    var h = '<h1>第' + c.no + '章 ' + esc(c.title) + '</h1><div class="card"><p>' + esc(c.summary) + '</p></div><div class="card"><h2>中項目</h2>';
+    c.lessons.forEach(function (l, i) {
+      h += '<div class="chap"><div>' + (i + 1) + '. ' + esc(l.title) + (isDone(l.id) ? '<span class="tag done">済</span>' : '') + '<div class="mute">' + l.topics.map(esc).join(' / ') + '</div></div><div><button class="sub" data-act="open-lesson" data-id="' + esc(l.id) + '">' + (isDone(l.id) ? '読み返す' : '学ぶ') + '</button></div></div>';
+    });
+    h += '</div><div class="card"><h2>問題演習</h2><div class="row"><button data-act="run-sample" data-ch="' + c.no + '"' + (c.samples.length ? '' : ' disabled') + '>サンプル問題(' + c.samples.length + '問)</button>';
+    h += '<button data-act="run-final" data-ch="' + c.no + '"' + (c.finals.length ? '' : ' disabled') + '>仕上げ問題(' + c.finals.length + '問)</button></div>';
+    h += '<p class="mute">仕上げ問題は正答率 ' + pct(P.settings.passRate) + '% 以上で合格、次章が開きます。' + (cp.testScore !== null ? '前回: ' + pct(cp.testScore) + '%' + (cp.testPassed ? '(合格)' : '(不合格)') : '') + '</p></div>';
+    return h + '<button class="sub" data-act="home">ホームへ</button>';
+  }
+
+  // ---------- レッスン ----------
+  function openLesson(id, page, keep) {
+    var l = IX.lessonById[id], c = IX.chapterOfLesson[id];
+    if (!l) return;
+    var pg = page >= 0 && page < l.pages.length ? page : 0;
+    update(L.setPosition(P, { ch: c.no, lessonId: id, page: pg }));
+    go({ name: 'lesson', id: id, page: pg, step: 'read', qi: 0, picked: null, right: 0, quizDone: keep || {} });
+  }
+  function lessonView() {
+    var v = view, l = IX.lessonById[v.id], c = IX.chapterOfLesson[v.id], pg = l.pages[v.page], n = l.pages.length, qs = pg.quiz || [];
+    var h = '<div class="mute">第' + c.no + '章 ' + esc(l.title) + ' ・ ページ ' + (v.page + 1) + '/' + n + '</div>';
+    h += '<div class="pbar"><div style="width:' + Math.round((v.page + 1) * 100 / n) + '%"></div></div><h1>' + esc(pg.title) + '</h1>';
+    if (v.step === 'quiz') return h + lessonQuizHtml(pg, qs);
+    h += '<div class="card lesson">' + pg.html + '</div><p>' + reportBtn(pg.id) + '</p>';
+    var qd = v.quizDone[pg.id];
+    if (qs.length && qd) h += '<p class="mute">確認クイズ: ' + qd.right + '/' + qd.total + '問正解 <button class="small sub" data-act="page-quiz">もう一度挑戦</button></p>';
+    h += '<div class="nav"><button class="sub" data-act="page-prev"' + (v.page === 0 ? ' disabled' : '') + '>前へ</button>';
+    if (qs.length && !qd) h += '<button data-act="page-quiz">次へ(確認クイズ ' + qs.length + '問)</button>';
+    else h += '<button data-act="page-next">' + (v.page + 1 < n ? '次へ' : (c.lessons.indexOf(l) + 1 < c.lessons.length ? '次へ(このレッスンを終える)' : '次へ(章の終わりへ)')) + '</button>';
+    return h + '</div><button class="sub small" data-act="home">ホームへ(位置は保存済み)</button>';
+  }
+  function lessonQuizHtml(pg, qs) {
+    var v = view, q = qs[v.qi], answered = v.picked !== null;
+    var h = '<div class="mute">確認クイズ ' + (v.qi + 1) + ' / ' + qs.length + '</div><div class="card">' + qBody(q) + choiceHtml(q, v.picked, answered, 'pick');
+    if (answered) h += resultBlock(q, v.picked);
+    h += '</div><details><summary class="mute">本文を読み返す</summary><div class="card lesson">' + pg.html + '</div></details>';
+    h += '<div class="nav"><button class="sub" data-act="quiz-back">前へ(本文に戻る)</button>';
+    if (answered) h += '<button data-act="quiz-next">' + (v.qi + 1 < qs.length ? '次の問題へ' : '次へ') + '</button>';
+    return h + '</div>';
+  }
+  function lessonPick(raw) {
+    var v = view, q = IX.lessonById[v.id].pages[v.page].quiz[v.qi];
+    if (v.picked !== null) return;
+    var val = parseVal(raw), ok = gradeAny(q, val);
+    view = Object.assign({}, v, { picked: val, right: v.right + (ok ? 1 : 0) });
+    update(L.recordAnswer(P, q.id, ok, Date.now())); render();
+  }
+  function quizNext() {
+    var v = view, pg = IX.lessonById[v.id].pages[v.page], qs = pg.quiz;
+    if (v.qi + 1 < qs.length) { go(Object.assign({}, v, { qi: v.qi + 1, picked: null })); return; }
+    var qd = Object.assign({}, v.quizDone); qd[pg.id] = { right: v.right, total: qs.length };
+    view = Object.assign({}, v, { quizDone: qd, step: 'read' });
+    advance();
+  }
+  function advance() {
+    var v = view, l = IX.lessonById[v.id], c = IX.chapterOfLesson[v.id], i = v.page, tgt;
+    sessionPages++;
+    if (i + 1 < l.pages.length) tgt = { id: l.id, page: i + 1 };
+    else {
+      P = L.markLessonDone(P, l.id);
+      var nx = L.firstUndoneLesson(P, c);
+      tgt = nx ? { id: nx.id, page: 0 } : { end: c.no };
+    }
+    update(tgt.id ? L.setPosition(P, { ch: c.no, lessonId: tgt.id, page: tgt.page }) : L.setPosition(P, null));
+    if (sessionPages % PAGES_PER_BREAK === 0) go({ name: 'break', tgt: tgt });
+    else runTarget(tgt, v.quizDone);
+  }
+  function runTarget(t, qd) {
+    if (t.id) openLesson(t.id, t.page, view.id === t.id ? qd : {});
+    else go({ name: 'chapterend', ch: t.end });
+  }
+  function breakView() {
+    var t = view.tgt;
+    return '<h1>ここまで読みました</h1><div class="card"><p>進捗は保存されています。区切りがよければ今日はここまでにできます。</p></div><button data-act="break-go">' + (t.id ? '続ける' : '章の終わりへ') + '</button><button class="sub" data-act="home">今日はここまで</button>';
+  }
+  function chapterEndView() {
+    var c = chapter(view.ch), cp = L.chapterProgress(P, c);
+    return '<h1>第' + c.no + '章 のレッスンはすべて完了</h1><div class="card"><p>サンプル問題で形式に慣れ、仕上げ問題で理解度を確認しましょう(正答率 ' + pct(P.settings.passRate) + '% 以上で合格、次章が開きます)。</p>' +
+      (cp.testScore !== null ? '<p class="mute">前回: ' + pct(cp.testScore) + '%' + (cp.testPassed ? '(合格)' : '(不合格)') + '</p>' : '') + '</div>' +
+      '<button class="sub" data-act="run-sample" data-ch="' + c.no + '"' + (c.samples.length ? '' : ' disabled') + '>サンプル問題へ</button><button data-act="run-final" data-ch="' + c.no + '"' + (c.finals.length ? '' : ' disabled') + '>仕上げ問題へ</button><button class="sub" data-act="home">ホームへ</button>';
+  }
+
+  // ---------- ランナー(サンプル/仕上げ/復習) ----------
+  function startRun(items, opts) { go({ name: 'run', items: items, i: 0, picked: null, right: 0, opts: opts }); }
+  function runView() {
+    var v = view, o = v.opts;
+    if (!v.items.length) return '<div class="card">問題がありません。</div><button data-act="home">戻る</button>';
+    var q = v.items[v.i], answered = v.picked !== null;
+    var h = '<h1>' + esc(o.title) + '</h1><div class="mute">' + (v.i + 1) + ' / ' + v.items.length + '</div><div class="card">' + qBody(q) + choiceHtml(q, v.picked, answered, 'pick');
+    if (answered) h += resultBlock(q, v.picked) + '<button data-act="run-next">' + (v.i + 1 < v.items.length ? '次の問題へ' : '結果を見る') + '</button>';
+    return h + '</div><button class="sub" data-act="home">中断してホームへ</button>';
+  }
+  function runPick(raw) {
+    var v = view; if (v.picked !== null) return;
+    var q = v.items[v.i], val = parseVal(raw), ok = gradeAny(q, val);
+    view = Object.assign({}, v, { picked: val, right: v.right + (ok ? 1 : 0) });
+    update(L.recordAnswer(P, q.id, ok, Date.now())); render();
+  }
+  function runNext() {
+    var v = view;
+    if (v.i + 1 < v.items.length) { go(Object.assign({}, v, { i: v.i + 1, picked: null })); return; }
+    v.opts.onDone({ right: v.right, total: v.items.length });
+  }
+  function startSample(no) {
+    var c = chapter(no);
+    startRun(c.samples, { title: '第' + no + '章 サンプル問題', onDone: function (s) {
+      go({ name: 'simple', title: 'サンプル問題 結果', body: '<p>' + s.total + '問中 ' + s.right + '問正解。</p>', back: { act: 'chapter', ch: no, label: '章メニューへ' } });
+    } });
+  }
+  function startFinal(no) {
+    var c = chapter(no);
+    startRun(c.finals, { title: '第' + no + '章 仕上げ問題', onDone: function (s) {
+      var rate = s.total ? s.right / s.total : 0, passed = rate >= P.settings.passRate - 1e-9;
+      update(L.recordChapterTest(P, no, rate));
+      go({ name: 'ctresult', ch: no, s: s, rate: rate, passed: passed });
+    } });
+  }
+  function ctResultView() {
+    var v = view, nextC = chapter(v.ch + 1);
+    return '<h1>第' + v.ch + '章 仕上げ問題 結果</h1><div class="card"><p>' + v.s.total + '問中 ' + v.s.right + '問正解(' + pct(v.rate) + '%)</p><h2 class="' + (v.passed ? 'ok' : 'ng') + '">' + (v.passed ? '合格' : '不合格(基準 ' + pct(P.settings.passRate) + '%)') + '</h2>' +
+      (v.passed ? (nextC ? '<p>第' + nextC.no + '章が開きました。</p>' : '<p>全章の学習が完了しました。</p>') : '<p>レッスンを見直してもう一度挑戦できます。次の章はロックのままです。</p>') + '</div>' +
+      '<button data-act="home">ホームへ</button><button class="sub" data-act="run-final" data-ch="' + v.ch + '">もう一度</button><button class="sub" data-act="chapter" data-ch="' + v.ch + '">章メニュー</button>';
+  }
+  function startReview() {
+    var items = L.reviewIds(P, DATA, IX).map(function (id) { return IX.qById[id]; });
+    startRun(items, { title: '復習(間違えた問題)', onDone: function (s) {
+      go({ name: 'simple', title: '復習 結果', body: '<p>' + s.total + '問中 ' + s.right + '問正解。正解した問題は復習リストから外れました。</p>' });
+    } });
+  }
+
+  // ---------- 模試メニュー ----------
+  var KIND_ORDER = ['am1', 'am2', 'pm1', 'pm2', 'pm'];
+  function mockView() {
+    var h = '<h1>模試(過去問)</h1><div class="card"><p class="mute">午前は自動採点(60%が目安)、午後は解答例を見ながら自己採点します。いつでも選んで受験できます。</p>';
+    DATA.exams.forEach(function (ex) {
+      h += '<div class="chap"><div><b>' + esc(ex.label) + '</b> <span class="mute">' + esc(ex.era) + '</span></div><div>';
+      KIND_ORDER.forEach(function (k) {
+        var s = L.findSection(DATA, ex.id, k);
+        if (!s) return;
+        var n = s.questions ? s.questions.length : s.problems.length;
+        var info = s.questions ? n + '問' : n + '大問';
+        h += '<button class="sub" data-act="mock-start" data-exam="' + esc(ex.id) + '" data-kind="' + k + '"' + (n ? '' : ' disabled') + '>' + esc(L.kindLabel(k)) + '<span class="mute">(' + info + '・' + s.timeLimitMin + '分)</span></button>';
+      });
+      h += '</div></div>';
+    });
+    h += '</div><div class="card"><h2>最近の受験(最新5件)</h2>' + historyRows(P.mockHistory.slice(-5).reverse()) + '</div>';
+    return h + '<button class="sub" data-act="history">履歴一覧</button><button class="sub" data-act="home">ホームへ</button>';
+  }
+  function historyRows(list) {
+    if (!list.length) return '<p class="mute">まだ受験していません。</p>';
+    return list.map(function (m) {
+      var ex = IX.examById[m.examId], name = (ex ? ex.label : m.examId) + ' ' + L.kindLabel(m.kind);
+      var res = m.kind === 'am1' || m.kind === 'am2' ? m.correct + '/' + m.total + '問(' + m.points + '点)' : '自己採点 ' + pct(m.ratio) + '%';
+      return '<div class="chap"><div>' + esc(name) + '<div class="mute">' + fmtDate(m.ts) + (m.elapsedSec !== undefined ? ' ・ ' + L.formatElapsed(m.elapsedSec) : '') + '</div></div><div class="' + (m.pass ? 'ok' : 'ng') + '">' + esc(res) + ' ' + (m.pass ? '目安到達' : '目安未満') + '</div></div>';
+    }).join('');
+  }
+  function historyView() {
+    return '<h1>模試 受験履歴</h1><div class="card">' + historyRows(P.mockHistory.slice().reverse()) + '</div><button data-act="mock">模試メニューへ</button>';
+  }
+
+  // ---------- 午前 模試 ----------
+  function startMockAm(ex, s) {
+    go({ name: 'mockrun', ex: ex, s: s, answers: {}, t0: Date.now() });
+    setTimer(function () { return timerHtml(view.t0, view.s.timeLimitMin); });
+  }
+  function mockRunView() {
+    var v = view, s = v.s;
+    var h = '<h1>' + esc(v.ex.label) + ' ' + esc(L.kindLabel(s.kind)) + '</h1><div class="stick"><b id="timer">' + timerHtml(v.t0, s.timeLimitMin) + '</b> <span class="mute">回答済み ' + Object.keys(v.answers).length + ' / ' + s.questions.length + '</span></div>';
+    s.questions.forEach(function (q) {
+      h += '<div class="card"><div class="mute">問' + q.no + '</div>' + qBody(q) + choiceHtml(q, v.answers[q.id], false, 'mock-pick', ' data-id="' + esc(q.id) + '"') + '</div>';
+    });
+    return h + '<p class="mute">未回答は0点扱いです。制限時間を超えても続けられます。</p><button data-act="mock-submit">提出して採点</button><button class="sub" data-act="mock">中断</button>';
+  }
+  function submitMockAm() {
+    var v = view, r = L.scoreAm(v.s, v.answers), now = Date.now(), np = P;
+    v.s.questions.forEach(function (q) { var a = v.answers[q.id]; np = L.recordAnswer(np, q.id, a !== undefined && L.gradeMc(q, a).correct, now); });
+    var elapsed = Math.floor((now - v.t0) / 1000);
+    np = L.recordMock(np, { ts: now, examId: v.ex.id, kind: v.s.kind, correct: r.correct, total: r.total, rate: r.rate, points: r.points, pass: r.pass, elapsedSec: elapsed });
+    update(np);
+    go({ name: 'mockresult', ex: v.ex, s: v.s, answers: v.answers, r: r, elapsed: elapsed, wrongOnly: false });
+  }
+  function mockResultView() {
+    var v = view, r = v.r;
+    var h = '<h1>' + esc(v.ex.label) + ' ' + esc(L.kindLabel(v.s.kind)) + ' 結果</h1><div class="card"><h2 class="' + (r.pass ? 'ok' : 'ng') + '">' + r.correct + ' / ' + r.total + '問(' + r.points + '点)　' + (r.pass ? '合格基準(60%)到達' : '合格基準(60%)未満') + '</h2>所要時間 ' + L.formatElapsed(v.elapsed) + '　未回答 ' + r.unanswered + '問</div>';
+    h += '<div class="card"><h2>章別成績</h2>' + statRows(r.byChapter, function (k) { var c = chapter(parseInt(k, 10)); return '第' + k + '章 ' + (c ? c.title : ''); });
+    if (Object.keys(r.byCategory).length) h += '<h2>分野別成績</h2>' + statRows(r.byCategory, function (k) { return { technology: 'テクノロジ系', management: 'マネジメント系', strategy: 'ストラテジ系' }[k] || k; });
+    h += '</div><div class="row"><button class="sub" data-act="toggle-wrong">' + (v.wrongOnly ? '全問を表示' : '誤答のみ表示') + '</button></div>';
+    v.s.questions.forEach(function (q) {
+      var a = v.answers[q.id], ok = a !== undefined && L.gradeMc(q, a).correct;
+      if (v.wrongOnly && ok) return;
+      h += '<div class="card"><div class="mute">問' + q.no + ' <span class="' + (ok ? 'ok' : 'ng') + '">' + (ok ? '正解' : (a === undefined ? '未回答' : '不正解')) + '</span></div>' + qBody(q) + choiceHtml(q, a, true, 'noop') +
+        '<p class="' + (ok ? 'ok' : 'ng') + '">あなたの回答: ' + (a === undefined ? '未回答' : L.choiceLabel(a - 1)) + '　正解: ' + L.choiceLabel(q.answer - 1) + '</p>' + flagsHtml(q) + '<div class="explain">' + L.explainToHtml(q) + '</div><p>' + reportBtn(q.id) + '</p></div>';
+    });
+    return h + '<button data-act="home">ホームへ</button><button class="sub" data-act="mock">模試メニューへ</button>';
+  }
+  function statRows(map, labelFn) {
+    return Object.keys(map).sort(function (a, b) { return isNaN(a) || isNaN(b) ? (a < b ? -1 : 1) : a - b; }).map(function (k) {
+      var b = map[k]; return '<div class="chap"><div>' + esc(labelFn(k)) + '</div><div>' + b.correct + ' / ' + b.total + '(' + pct(b.correct / b.total) + '%)</div></div>';
+    }).join('');
+  }
+
+  // ---------- 午後 模試 ----------
+  function pmSelectView() {
+    var v = view, s = v.s, req = s.requiredNos || [];
+    var h = '<h1>' + esc(v.ex.label) + ' ' + esc(L.kindLabel(s.kind)) + '</h1><div class="card"><p>' + esc(s.selectRule) + '</p><p class="mute">制限時間 ' + s.timeLimitMin + '分</p>';
+    s.problems.forEach(function (p) {
+      var must = req.indexOf(p.no) >= 0;
+      h += '<label class="kp"><input type="checkbox" data-pmsel="' + p.no + '"' + (v.sel.indexOf(p.no) >= 0 ? ' checked' : '') + (must ? ' disabled' : '') + '> 問' + p.no + ' ' + esc(p.title) + (must ? '(必須)' : '') + '</label>';
+    });
+    return h + '</div><button data-act="pm-start">この内容で開始</button><button class="sub" data-act="mock">戻る</button>';
+  }
+  function pmRunView() {
+    var v = view, h = '<h1>' + esc(v.ex.label) + ' ' + esc(L.kindLabel(v.s.kind)) + '</h1><div class="stick"><b id="timer">' + timerHtml(v.t0, v.s.timeLimitMin) + '</b></div>';
+    v.s.problems.filter(function (p) { return v.sel.indexOf(p.no) >= 0; }).forEach(function (p) {
+      h += '<div class="card"><h2>問' + p.no + ' ' + esc(p.title) + '</h2><div class="lesson">' + p.passage + '</div></div>';
+      p.questions.forEach(function (lf) {
+        h += '<div class="card"><b>' + esc(lf.label) + '</b><div>' + lf.prompt + '</div><textarea data-leaf="' + esc(lf.id) + '" placeholder="解答を入力(この画面内のみ保持されます)">' + esc(v.texts[lf.id] || '') + '</textarea></div>';
+      });
+    });
+    return h + '<button data-act="pm-grade">解答を見て自己採点へ</button><button class="sub" data-act="mock">中断</button>';
+  }
+  function pmGradeView() {
+    var v = view, s = v.s, h = '<h1>自己採点</h1><div class="stick"><b>現在の自己採点: <span id="pmlive">' + liveText() + '</span></b></div>';
+    s.problems.filter(function (p) { return v.sel.indexOf(p.no) >= 0; }).forEach(function (p) {
+      h += '<div class="card"><h2>問' + p.no + ' ' + esc(p.title) + '</h2><details><summary>出題趣旨</summary>' + p.intent + '</details><details><summary>採点講評</summary>' + p.review + '</details></div>';
+      p.questions.forEach(function (lf) {
+        var chk = v.checked[lf.id] || [];
+        h += '<div class="card"><b>' + esc(lf.label) + '</b><div>' + lf.prompt + '</div><p class="mute">あなたの解答</p><div class="mine">' + (v.texts[lf.id] ? esc(v.texts[lf.id]) : '(未入力)') + '</div><p class="mute">解答例(IPA)</p><div>' + lf.answerExample + '</div>';
+        h += '<p class="mute">採点キーポイント(満たしたものにチェック)</p>';
+        lf.keyPoints.forEach(function (k, i) {
+          h += '<label class="kp"><input type="checkbox" data-kp="' + esc(lf.id) + '" data-i="' + i + '"' + (chk.indexOf(i) >= 0 ? ' checked' : '') + '> ' + k.text + (k.point !== null && k.point !== undefined ? ' <span class="mute">(' + k.point + '点)</span>' : '') + '</label>';
+        });
+        if (lf.comment) h += '<div class="note"><b>講評</b> ' + lf.comment + '</div>';
+        h += '<div class="explain">' + L.explainToHtml(lf) + '</div><p>' + reportBtn(lf.id) + '</p></div>';
+      });
+    });
+    return h + '<button data-act="pm-confirm">自己採点を確定</button>';
+  }
+  function liveText() {
+    var r = L.scorePmSection(view.s, view.sel, view.checked);
+    return pct(r.ratio) + '%(' + r.earned + ' / ' + r.max + '点)';
+  }
+  function pmResultView() {
+    var v = view, r = v.r, h = '<h1>' + esc(v.ex.label) + ' ' + esc(L.kindLabel(v.s.kind)) + ' 自己採点結果</h1><div class="card"><h2 class="' + (r.pass ? 'ok' : 'ng') + '">' + pct(r.ratio) + '%(' + r.earned + ' / ' + r.max + '点)　' + (r.pass ? '合格基準(60%)の目安に到達' : '合格基準(60%)の目安に未達') + '</h2><p class="mute">自己採点のため目安です。所要時間 ' + L.formatElapsed(v.elapsed) + '</p>';
+    v.s.problems.forEach(function (p) {
+      var b = r.byProblem[p.no]; if (!b) return;
+      h += '<div class="chap"><div>問' + p.no + ' ' + esc(p.title) + '</div><div>' + pct(b.ratio) + '%(' + b.earned + ' / ' + b.max + '点)</div></div>';
+    });
+    return h + '</div><button data-act="home">ホームへ</button><button class="sub" data-act="mock">模試メニューへ</button>';
+  }
+  function confirmPm() {
+    var v = view, now = Date.now(), np = P, elapsed = Math.floor((now - v.t0) / 1000);
+    v.s.problems.filter(function (p) { return v.sel.indexOf(p.no) >= 0; }).forEach(function (p) {
+      p.questions.forEach(function (lf) { np = L.savePmSelf(np, lf.id, v.checked[lf.id] || [], now); });
+    });
+    var r = L.scorePmSection(v.s, v.sel, v.checked);
+    np = L.recordMock(np, { ts: now, examId: v.ex.id, kind: v.s.kind, selected: v.sel.slice(), ratio: r.ratio, pass: r.pass, elapsedSec: elapsed });
+    update(np);
+    go({ name: 'pmresult', ex: v.ex, s: v.s, r: r, elapsed: elapsed });
+  }
+
+  function startMock(examId, kind) {
+    var ex = IX.examById[examId], s = L.findSection(DATA, examId, kind);
+    if (!ex || !s) return;
+    if (s.questions) { startMockAm(ex, s); return; }
+    var req = s.requiredNos || [];
+    go({ name: 'pmselect', ex: ex, s: s, sel: req.slice() });
+  }
+
+  // ---------- 間違いメモ / 設定 ----------
+  function reportsView() {
+    var h = '<h1>間違いメモ</h1><div class="card">';
+    if (!P.reports.length) h += '<p class="mute">まだありません。レッスンや問題の「間違いをメモ」から追加できます。</p>';
+    P.reports.forEach(function (r, i) {
+      h += '<div class="chap"><div><span class="mute">' + esc(r.id) + '</span><br>' + esc(r.memo) + '</div><button class="small sub" data-act="report-del" data-i="' + i + '">削除</button></div>';
+    });
+    return h + '</div><button data-act="export-reports"' + (P.reports.length ? '' : ' disabled') + '>メモを書き出す</button><button class="sub" data-act="home">ホームへ</button>';
+  }
+  function settingsView() {
+    var s = P.settings;
+    return '<h1>設定</h1><div class="card"><h2>仕上げ問題の合格基準</h2><label>正答率 <input type="number" id="passRate" min="10" max="100" step="5" value="' + pct(s.passRate) + '" style="width:5em;font:inherit"> %</label> <button class="small" data-act="set-pass">変更</button></div>' +
+      '<div class="card"><h2>全章を開放</h2><p class="mute">章のロックを解除します(模試は常に開放されています)。</p><label><input type="checkbox" id="unlockAll"' + (s.unlockAll ? ' checked' : '') + '> 全章を開放する</label> <button class="small" data-act="set-unlock">反映</button></div>' +
+      '<div class="card"><h2>進捗のバックアップ</h2><button data-act="export">進捗JSONを書き出す</button><p><input type="file" id="importFile" accept=".json,application/json"></p><button class="sub" data-act="import">読み込む</button></div>' +
+      '<div class="card"><h2>進捗の消去</h2><button class="sub" data-act="reset">すべて消去</button></div><button class="sub" data-act="home">ホームへ</button>';
+  }
+
+  // ---------- 描画 ----------
+  function render() {
+    var h = '';
+    if (!storageOk) h += '<div class="warn">保存できません:ブラウザの保存領域を使えない、または保存データが壊れていたため、進捗なしで起動しました。「設定」から進捗JSONを書き出してバックアップしてください。</div>';
+    if (saveFailed) h += '<div class="warn">進捗を保存できませんでした。設定の「進捗JSONを書き出す」でバックアップしてください。</div>';
+    if (notice) { h += '<div class="warn">' + esc(notice) + '</div>'; notice = ''; }
+    var n = view.name, map = {
+      home: homeView, chapter: chapterView, lesson: lessonView, run: runView, break: breakView, chapterend: chapterEndView, ctresult: ctResultView,
+      mock: mockView, history: historyView, mockrun: mockRunView, mockresult: mockResultView, pmselect: pmSelectView, pmrun: pmRunView,
+      pmgrade: pmGradeView, pmresult: pmResultView, reports: reportsView, settings: settingsView
+    };
+    if (map[n]) h += map[n]();
+    else if (n === 'simple') h += '<h1>' + esc(view.title) + '</h1><div class="card">' + view.body + '</div>' + (view.back ? '<button data-act="' + view.back.act + '" data-ch="' + view.back.ch + '">' + esc(view.back.label) + '</button>' : '') + '<button class="sub" data-act="home">ホームへ</button>';
+    root.innerHTML = h;
+  }
+
+  function closestAct(t) {
+    while (t && t !== root && !(t.dataset && t.dataset.act)) t = t.parentNode;
+    return t && t !== root ? t : null;
+  }
+  function onAct(t) {
+    var act = t.dataset.act, d = t.dataset;
+    switch (act) {
+      case 'home': go({ name: 'home' }); break;
+      case 'noop': break;
+      case 'continue': { var c = L.continueTarget(P, DATA); if (c) openLesson(c.lessonId, c.page); break; }
+      case 'chapter': go({ name: 'chapter', ch: parseInt(d.ch, 10) }); break;
+      case 'open-lesson': openLesson(d.id, P.position && P.position.lessonId === d.id ? P.position.page || 0 : 0); break;
+      case 'run-sample': startSample(parseInt(d.ch, 10)); break;
+      case 'run-final': startFinal(parseInt(d.ch, 10)); break;
+      case 'page-prev': if (view.page > 0) openLesson(view.id, view.page - 1, view.quizDone); break;
+      case 'page-next': advance(); break;
+      case 'page-quiz': go(Object.assign({}, view, { step: 'quiz', qi: 0, picked: null, right: 0 })); break;
+      case 'quiz-back': go(Object.assign({}, view, { step: 'read' })); break;
+      case 'quiz-next': quizNext(); break;
+      case 'break-go': runTarget(view.tgt, {}); break;
+      case 'pick': if (view.name === 'lesson') lessonPick(d.v); else runPick(d.v); break;
+      case 'run-next': runNext(); break;
+      case 'review': startReview(); break;
+      case 'mock': go({ name: 'mock' }); break;
+      case 'history': go({ name: 'history' }); break;
+      case 'mock-start': startMock(d.exam, d.kind); break;
+      case 'mock-pick': { var a = Object.assign({}, view.answers); a[d.id] = parseInt(d.v, 10); view = Object.assign({}, view, { answers: a }); keepScroll(); break; }
+      case 'mock-submit': submitMockAm(); break;
+      case 'toggle-wrong': view = Object.assign({}, view, { wrongOnly: !view.wrongOnly }); keepScroll(); break;
+      case 'pm-start': {
+        var err = L.validateSelection(view.s, view.sel);
+        if (err) { notice = err; render(); break; }
+        var t0 = Date.now();
+        go({ name: 'pmrun', ex: view.ex, s: view.s, sel: view.sel, texts: {}, t0: t0 });
+        setTimer(function () { return timerHtml(view.t0, view.s.timeLimitMin); });
+        break;
+      }
+      case 'pm-grade': go(Object.assign({}, view, { name: 'pmgrade', checked: {} })); break;
+      case 'pm-confirm': confirmPm(); break;
+      case 'report': {
+        var memo = window.prompt('どこが間違いだと思いますか?(メモ)\n対象: ' + d.id, '');
+        if (memo !== null && memo.trim()) { update(L.addReport(P, d.id, memo.trim(), Date.now())); notice = 'メモを保存しました(' + d.id + ')。'; keepScroll(); }
+        break;
+      }
+      case 'reports': go({ name: 'reports' }); break;
+      case 'report-del': update(L.removeReport(P, parseInt(d.i, 10))); render(); break;
+      case 'export-reports': download('sc-reports-' + stamp() + '.json', JSON.stringify(P.reports, null, 2)); break;
+      case 'settings': go({ name: 'settings' }); break;
+      case 'set-pass': {
+        var pr = parseInt(document.getElementById('passRate').value, 10);
+        if (pr >= 10 && pr <= 100) { update(L.setSettings(P, { passRate: pr / 100 })); notice = '合格基準を ' + pr + '% にしました。'; } else notice = '10〜100 の数値を入れてください。';
+        render(); break;
+      }
+      case 'set-unlock': update(L.setSettings(P, { unlockAll: document.getElementById('unlockAll').checked })); notice = P.settings.unlockAll ? '全章を開放しました。' : '開放を解除しました。'; render(); break;
+      case 'export': download('sc-progress-' + stamp() + '.json', JSON.stringify(P, null, 2)); break;
+      case 'import': importFile(); break;
+      case 'reset': if (window.confirm('進捗をすべて消去します。よろしいですか?')) { update(L.emptyProgress()); sessionPages = 0; notice = '消去しました。'; go({ name: 'home' }); } break;
+    }
+  }
+  function importFile() {
+    var f = document.getElementById('importFile').files[0];
+    if (!f) { notice = 'ファイルを選んでください。'; render(); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      var res = L.importProgress(String(fr.result), P);
+      if (res.error) notice = '読み込めませんでした: ' + res.error + '(現在の進捗は変更していません)';
+      else { update(res.progress); notice = '進捗を読み込みました。'; }
+      render();
+    };
+    fr.readAsText(f);
+  }
+
+  root.addEventListener('click', function (e) { var t = closestAct(e.target); if (t) onAct(t); });
+  root.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var t = e.target; if (t && t.getAttribute && t.getAttribute('role') === 'button') { e.preventDefault(); var a = closestAct(t); if (a) onAct(a); }
+  });
+  root.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.dataset && t.dataset.leaf && view.name === 'pmrun') { var tx = Object.assign({}, view.texts); tx[t.dataset.leaf] = t.value; view = Object.assign({}, view, { texts: tx }); }
+  });
+  root.addEventListener('change', function (e) {
+    var t = e.target, d = t.dataset || {};
+    if (d.pmsel && view.name === 'pmselect') {
+      var no = parseInt(d.pmsel, 10), sel = view.sel.filter(function (n) { return n !== no; });
+      if (t.checked) sel = sel.concat([no]);
+      view = Object.assign({}, view, { sel: sel });
+    } else if (d.kp && view.name === 'pmgrade') {
+      var i = parseInt(d.i, 10), cur = (view.checked[d.kp] || []).filter(function (x) { return x !== i; });
+      if (t.checked) cur = cur.concat([i]);
+      var ch = Object.assign({}, view.checked); ch[d.kp] = cur;
+      view = Object.assign({}, view, { checked: ch });
+      var el = document.getElementById('pmlive'); if (el) el.textContent = liveText();
+    }
+  });
+
+  // 起動時:保存された位置のレッスンを開く
+  var pos = P.position;
+  if (pos && IX.lessonById[pos.lessonId] && !isDone(pos.lessonId) && L.isChapterUnlocked(P, pos.ch)) openLesson(pos.lessonId, pos.page || 0);
+  else render();
+})();
+</script>
+</body>
+</html>

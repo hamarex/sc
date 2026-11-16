@@ -1,0 +1,11 @@
+{
+  "id": "2022a-pm1",
+  "kind": "pm1",
+  "label": "午後I(記述式)",
+  "timeLimitMin": 90,
+  "maxScore": 100,
+  "selectRule": "問1〜問3から2問選択",
+  "requiredNos": [],
+  "chooseCount": 2,
+  "problems": []
+}
