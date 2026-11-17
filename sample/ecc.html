@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>楕円曲線 点の加算アニメーション</title>
+<style>
+:root{
+  --bg:#f6f7fb; --card:#fff; --ink:#1b2333; --mute:#5a6578; --line:#d5dae5;
+  --P:#1c6fd6; --Q:#0e8a4f; --R:#8a3fc7; --S:#d7263d; --HL:#e8590c; --dot:#8d9ab3; --accent:#1c6fd6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;line-height:1.7}
+body{overflow-x:hidden}
+header{padding:14px 16px 0;max-width:1200px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+header p{margin:0;color:var(--mute);font-size:14px}
+main{max-width:1200px;margin:12px auto 0;padding:0 16px 40px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+@media(max-width:820px){.layout{grid-template-columns:minmax(0,1fr)}}
+.stage{min-width:0}
+canvas{width:100%;aspect-ratio:1/1;display:block;background:#fcfdff;border:1px solid var(--line);border-radius:8px}
+.controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.controls button,.controls select{font-size:14px;padding:6px 10px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:6px;cursor:pointer}
+.controls button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.controls button:disabled{opacity:.45;cursor:default}
+.controls label{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.controls input[type=range]{width:110px}
+.row2{flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.panel{min-width:0;border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:#fff}
+.panel h2{font-size:16px;margin:0 0 6px}
+.badge{display:inline-block;font-size:12px;background:var(--HL);color:#fff;border-radius:10px;padding:0 9px;margin-right:6px}
+.eq{display:block;margin:6px 0;padding:6px 10px;background:#f1f4fa;border-left:4px solid var(--HL);border-radius:4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;overflow-wrap:anywhere;word-break:break-word}
+.eq.sub{border-left-color:var(--dot)}
+.hl{color:var(--HL);font-weight:bold}
+.cP{color:var(--P);font-weight:bold}.cQ{color:var(--Q);font-weight:bold}.cR{color:var(--R);font-weight:bold}.cS{color:var(--S);font-weight:bold}
+.note{font-size:13px;color:var(--mute);margin:6px 0}
+.dots{display:flex;gap:3px;flex-wrap:wrap;margin:0 0 8px}
+.dots i{width:14px;height:6px;border-radius:3px;background:var(--line)}
+.dots i.done{background:var(--dot)}.dots i.cur{background:var(--HL)}
+.dots i.sep{margin-right:7px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--mute);margin-top:6px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px;background:var(--c)}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:12px 0;background:#fff}
+.card h2{font-size:16px;margin:0 0 6px}
+.chainban{background:#fff6ee;border:1px solid #f3c9a6;border-radius:6px;padding:6px 10px;margin:0 0 8px;font-size:13.5px}
+.gloss summary{cursor:pointer}.gloss dl{margin:8px 0 0}.gloss dt{font-weight:bold;color:var(--accent);margin-top:6px}.gloss dd{margin:0 0 0 12px;font-size:14px}
+.sec{margin:18px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.sec h2{font-size:18px;margin:0 0 6px}.sec h3{font-size:15px;margin:16px 0 4px}
+.sec p{margin:6px 0;font-size:14px}
+.sec table{border-collapse:collapse;width:100%;font-size:13px}
+.sec th,.sec td{border:1px solid var(--line);padding:4px 8px;text-align:left}
+.sec th{background:#f1f4fa}.wrap{overflow-x:auto}.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<header>
+  <h1>楕円曲線の「点の加算」を数値で見る(y² = x³ − x + 1)</h1>
+  <p>曲線上の2点 P, Q を通る直線 → 直線と曲線の3つ目の交点 R' → x軸で反転した点 R = P+Q。次の回は P はそのまま、Q ← R として R₁, R₂, … と8回くり返します。</p>
+</header>
+<main>
+  <div class="layout">
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <div class="controls" id="ctl"></div>
+      <div class="legend"><span style="--c:var(--P)">P</span><span style="--c:var(--Q)">Q(今回の入力)</span><span style="--c:var(--R)">交点 R'</span><span style="--c:var(--S)">反転後 R = P+Q</span><span style="--c:var(--HL)">今回の直線(薄い線は過去の直線)</span></div>
+    <p class="note">実際の暗号は mod p の整数上で、同じ P+Q をくり返し足していきます。くり返した結果から、何回足したかを逆算するのは困難です。</p>
+    </div>
+    <div class="panel" id="pn" aria-live="polite"></div>
+  </div>
+<section class="sec" id="crypto"></section>
+</main>
+
+<script>
+"use strict";
+/* ============ 有理数 (BigInt, 厳密計算) ============ */
+function gcd(a,b){a=a<0n?-a:a;b=b<0n?-b:b;while(b){[a,b]=[b,a%b]}return a}
+function F(n,d=1){n=BigInt(n);d=BigInt(d);if(d<0n){n=-n;d=-d}const g=gcd(n,d)||1n;return{n:n/g,d:d/g}}
+const fadd=(a,b)=>F(a.n*b.d+b.n*a.d,a.d*b.d), fsub=(a,b)=>F(a.n*b.d-b.n*a.d,a.d*b.d);
+const fmul=(a,b)=>F(a.n*b.n,a.d*b.d), fdiv=(a,b)=>F(a.n*b.d,a.d*b.n);
+const fnum=a=>Number(a.n)/Number(a.d), feq=(a,b)=>a.n===b.n&&a.d===b.d;
+const fabs=a=>F(a.n<0n?-a.n:a.n,a.d);
+const MINUS="−";
+function fs(a){
+  const an=a.n<0n?-a.n:a.n;
+  if(an.toString().length>6||a.d.toString().length>6){const v=fnum(a);return (v<0?MINUS:"")+"≈"+Math.abs(v).toFixed(4)}
+  return (a.n<0n?MINUS:"")+(a.d===1n?String(an):an+"/"+a.d)}
+function fp(a){return a.n<0n?"("+fs(a)+")":fs(a)}
+const pt=(x,y)=>({x,y});
+const ptS=q=>"("+fs(q.x)+", "+fs(q.y)+")";
+const SUB="₀₁₂₃₄₅₆₇₈₉";const sub=i=>String(i).split("").map(c=>SUB[+c]).join("");
+
+/* 曲線 y² = x³ + A x + B  (A=-1, B=1) */
+const RA=F(-1), RB=F(1);
+const rhs=x=>fadd(fadd(fmul(fmul(x,x),x),fmul(RA,x)),RB);
+const onCurveR=q=>feq(fmul(q.y,q.y),rhs(q.x));
+const neg=q=>pt(q.x,fmul(F(-1),q.y));
+function realAdd(P,Q){
+  const dbl=feq(P.x,Q.x)&&feq(P.y,Q.y);
+  const m=dbl?fdiv(fadd(fmul(F(3),fmul(P.x,P.x)),RA),fmul(F(2),P.y)):fdiv(fsub(Q.y,P.y),fsub(Q.x,P.x));
+  const b=fsub(P.y,fmul(m,P.x));
+  const x3=fsub(fsub(fmul(m,m),P.x),Q.x);
+  const y3=fadd(fmul(m,x3),b);
+  const Rp=pt(x3,y3), S=neg(Rp);
+  [P,Q,Rp,S].forEach(q=>{if(!onCurveR(q))console.warn("ASSERT: 点が曲線上にありません",ptS(q))});
+  return{dbl,m,b,Rp,S};
+}
+/* 1回の足し算の種類 */
+function kindOf(P,Q){
+  if(feq(P.x,Q.x)&&!feq(P.y,Q.y))return"inv";
+  if(feq(P.x,Q.x)&&feq(P.y,Q.y)&&P.y.n===0n)return"inv"; // 接線が垂直
+  return feq(P.x,Q.x)?"dbl":"add";
+}
+
+/* ============ 共通ユーティリティ ============ */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+function halo(g,txt,x,y,col,font,align){
+  g.font=font||"bold 13px sans-serif";g.textAlign=align||"left";g.textBaseline="middle";
+  g.lineWidth=4;g.strokeStyle="rgba(255,255,255,.92)";g.lineJoin="round";g.strokeText(txt,x,y);
+  g.fillStyle=col;g.fillText(txt,x,y);
+}
+function setupCanvas(cv){
+  const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  const W=Math.max(200,Math.round(r.width));
+  if(cv.width!==Math.round(W*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(W*dpr)}
+  const g=cv.getContext("2d");g.setTransform(cv.width/W,0,0,cv.width/W,0,0);
+  g.clearRect(0,0,W,W);return{g,W};
+}
+
+/* ============ Player ============ */
+class Player{
+  constructor(o){
+    Object.assign(this,o);this.i=0;this.t=0;this.auto=false;this.speed=1;this.wait=0;this.raf=0;this.lastTs=null;
+    this.build();this.restart();
+  }
+  build(){
+    const c=this.ctl;
+    c.innerHTML='<button data-a="first">最初から</button><button data-a="prev">◀ 前へ</button><button data-a="next" class="primary">次へ ▶</button><button data-a="auto">▶ 自動再生</button>'+
+      '<label>速度<input type="range" min="0.3" max="3" step="0.1" value="1" data-a="speed"><span class="sp">1.0x</span></label>'+(this.extraCtl||"");
+    c.addEventListener("click",e=>{const a=e.target.dataset&&e.target.dataset.a;if(!a)return;
+      if(a==="first")this.restart();
+      if(a==="prev"){this.auto=false;this.go(this.i-1,1)}
+      if(a==="next"){this.auto=false;this.go(this.i+1,0)}
+      if(a==="auto"){if(this.auto)this.auto=false;else{if(this.atEnd())this.go(0,0);this.auto=true;this.wait=0;this.kick()}}
+      this.ui()});
+    c.querySelector("[data-a=speed]").addEventListener("input",e=>{this.speed=parseFloat(e.target.value)||1;c.querySelector(".sp").textContent=this.speed.toFixed(1)+"x"});
+    window.addEventListener("resize",()=>this.render());
+  }
+  restart(){this.auto=false;this.go(0,0)}
+  go(i,t){this.i=clamp(i,0,this.steps.length-1);this.t=t;this.render();this.panelUpdate();this.kick();this.ui()}
+  kick(){if(this.raf)return;this.lastTs=null;this.raf=requestAnimationFrame(ts=>this.loop(ts))}
+  loop(ts){
+    this.raf=0;
+    try{this.loop2(ts)}catch(err){console.error(err);this.auto=false;try{this.ui()}catch(e2){}}
+  }
+  loop2(ts){
+    const dt=this.lastTs==null?0:Math.min(80,Math.max(0,ts-this.lastTs));this.lastTs=ts;
+    const sp=(isFinite(this.speed)&&this.speed>0)?this.speed:1;
+    if(this.t<1){this.t=Math.min(1,this.t+dt/(1500/sp));this.render()}
+    else if(this.auto){
+      this.wait+=dt;
+      if(this.wait>=800/sp){this.wait=0;
+        if(this.i<this.steps.length-1){this.i++;this.t=0;this.panelUpdate();this.render()}
+        else this.auto=false;
+        this.ui()}
+    }
+    if(this.t>=1&&!this.auto)this.ui();
+    if(this.t<1||this.auto)this.raf=requestAnimationFrame(t2=>this.loop(t2));
+  }
+  pause(){if(this.auto){this.auto=false;this.ui()}}
+  atEnd(){return this.i>=this.steps.length-1&&this.t>=1}
+  ui(){
+    const c=this.ctl;
+    c.querySelector("[data-a=prev]").disabled=this.i===0;
+    c.querySelector("[data-a=next]").disabled=this.i===this.steps.length-1;
+    c.querySelector("[data-a=auto]").textContent=this.auto?"■ 停止":(this.atEnd()?"↻ もう一度":"▶ 自動再生");
+  }
+  panelUpdate(){
+    const s=this.steps[this.i];
+    let prev=-1,dots='<div class="dots">'+this.steps.map((st,k)=>{const sep=(st.rd!==undefined&&this.steps[k+1]&&this.steps[k+1].rd!==st.rd)?" sep":"";return '<i class="'+(k<this.i?"done":k===this.i?"cur":"")+sep+'"></i>'}).join("")+"</div>";
+    this.panel.innerHTML=dots+'<h2><span class="badge">'+(this.i+1)+"/"+this.steps.length+"</span>"+s.title+"</h2>"+s.html;
+  }
+  render(){const{g,W}=setupCanvas(this.canvas);this.draw(g,W,this.steps[this.i],this.t,this.i)}
+}
+
+/* ============ 描画 (表示範囲は点から自動調整) ============ */
+let VX0=-4,VX1=7,VY0=-5.6,VY1=5.4;
+function setView(pts){
+  let xs=[0],ys=[0];pts.forEach(q=>{xs.push(fnum(q.x));ys.push(fnum(q.y))});
+  xs.push(-1.4);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  let span=Math.max(x1-x0,y1-y0,6)*1.3,cx=(x0+x1)/2,cy=(y0+y1)/2;
+  VX0=cx-span/2;VX1=cx+span/2;VY0=cy-span/2;VY1=cy+span/2;
+}
+const RROOT=(()=>{let lo=-3,hi=0;const f=x=>x*x*x-x+1;for(let k=0;k<60;k++){const m=(lo+hi)/2;if(f(m)>0)hi=m;else lo=m}return hi})();
+function view(W){const sx=W/(VX1-VX0),sy=W/(VY1-VY0);return{X:x=>(x-VX0)*sx,Y:y=>(VY1-y)*sy}}
+function niceStep(span){const raw=span/9,p=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/p;return(f<1.5?1:f<3.5?2:f<7.5?5:10)*p}
+function drawBase(g,W,v){
+  const st=niceStep(VX1-VX0);
+  g.strokeStyle="#e6eaf2";g.lineWidth=1;g.font="11px sans-serif";g.fillStyle="#8a94a8";
+  g.textAlign="center";g.textBaseline="top";
+  for(let x=Math.ceil(VX0/st)*st;x<=VX1;x+=st){g.beginPath();g.moveTo(v.X(x),0);g.lineTo(v.X(x),W);g.stroke();if(Math.abs(x)>1e-9)g.fillText(+x.toFixed(4),v.X(x),Math.min(W-14,Math.max(2,v.Y(0)+3)))}
+  g.textAlign="right";g.textBaseline="middle";
+  for(let y=Math.ceil(VY0/st)*st;y<=VY1;y+=st){g.beginPath();g.moveTo(0,v.Y(y));g.lineTo(W,v.Y(y));g.stroke();if(Math.abs(y)>1e-9)g.fillText(+y.toFixed(4),Math.max(26,Math.min(W-4,v.X(0)-4)),v.Y(y))}
+  g.strokeStyle="#6b7790";g.lineWidth=1.5;g.beginPath();g.moveTo(0,v.Y(0));g.lineTo(W,v.Y(0));g.moveTo(v.X(0),0);g.lineTo(v.X(0),W);g.stroke();
+  g.strokeStyle="#2b3a55";g.lineWidth=2.5;g.lineJoin="round";
+  if(VX1>RROOT){
+    const umax=Math.sqrt(VX1-RROOT)+0.01;
+    for(const sg of[1,-1]){g.beginPath();
+      for(let k=0;k<=600;k++){const u=umax*k/600,x=RROOT+u*u,y=sg*Math.sqrt(Math.max(0,x*x*x-x+1));
+        if(k===0)g.moveTo(v.X(x),v.Y(y));else g.lineTo(v.X(x),v.Y(y))}
+      g.stroke()}}
+  halo(g,"y² = x³ − x + 1",8,16,"#2b3a55","bold 13px sans-serif");
+}
+let LINES=0; // 描画した直線の本数(検査用)
+function drawLine(g,v,pp,qq,r,kind,prog,col,w,dash){ // P,Q を通る直線(接線/垂直線対応)
+  LINES++;
+  g.save();g.strokeStyle=col;g.lineWidth=w;if(dash)g.setLineDash(dash);
+  const px=fnum(pp.x),py=fnum(pp.y);
+  g.beginPath();
+  if(kind==="inv"){const ya=py-(py-VY0)*prog-(0),yb=py+(VY1-py)*prog;g.moveTo(v.X(px),v.Y(Math.min(py,VY0+(py-VY0)*(1-prog))));g.lineTo(v.X(px),v.Y(py+(VY1-py)*prog));g.moveTo(v.X(px),v.Y(py));g.lineTo(v.X(px),v.Y(py-(py-VY0)*prog))}
+  else{const m=fnum(r.m),b=fnum(r.b),cx=kind==="dbl"?px:(px+fnum(qq.x))/2;
+    const xa=cx-(cx-VX0)*prog,xb=cx+(VX1-cx)*prog;g.moveTo(v.X(xa),v.Y(m*xa+b));g.lineTo(v.X(xb),v.Y(m*xb+b))}
+  g.stroke();g.restore();
+}
+function dotAt(g,x,y,r,col,a){g.globalAlpha=a===undefined?1:a;g.fillStyle=col;g.beginPath();g.arc(x,y,r,0,7);g.fill();g.strokeStyle="#fff";g.lineWidth=r>5?2:1.5;g.stroke();g.globalAlpha=1}
+function ringAt(g,x,y,r,col){g.strokeStyle=col;g.lineWidth=3;g.beginPath();g.arc(x,y,r,0,7);g.stroke()}
+const C={P:"#1c6fd6",Q:"#0e8a4f",R:"#8a3fc7",S:"#d7263d",HL:"#e8590c"};
+
+/* ============ シーン構築: P はそのまま、Q ← R で R1, R2, ... をくり返す ============ */
+const PP=pt(F(0),F(1)), Q1=pt(F(-1),F(1));   // 最初の P, Q (P ≠ Q)
+[PP,Q1].forEach(q=>{if(!onCurveR(q))console.warn("ASSERT: 点が曲線上にありません")});
+const ROUNDS=8;
+function buildRounds(){
+  const rounds=[];let Q=Q1;
+  for(let i=1;i<=ROUNDS;i++){
+    const kind=kindOf(PP,Q);if(kind!=="add")break;
+    const r=realAdd(PP,Q);rounds.push({i,P:PP,Q,kind,r,R:r.S});Q=r.S;
+  }
+  return rounds;
+}
+function curTxt(q){return "y² = "+fs(fmul(q.y,q.y))+" , x³ − x + 1 = "+fs(rhs(q.x))}
+function buildSteps(rounds){
+  const steps=[];
+  rounds.forEach((rd,idx)=>{
+    const{i,P,Q,r}=rd,Qn="Q"+sub(i),Rn="R"+sub(i);
+    const head=`<div class="chainban"><b>${i}回目 / ${rounds.length}回</b>: P と ${Qn} を通る直線 → 交点 R' → 反転して ${Rn} = P+${Qn}</div>`;
+    const nextTxt=idx<rounds.length-1?`<p class="note"><b>次は Q ← R</b>: Q${sub(i+1)} = ${Rn} = ${ptS(rd.R)}。P はそのまま、P と Q${sub(i+1)} を通る新しい直線を引きます。</p>`:`<p class="note">これで ${rounds.length} 回くり返しました(R${sub(1)}〜${Rn})。</p>`;
+    steps.push({rd:idx,ph:0,title:`${i}回目 ① P と ${Qn} を決める`,html:head+
+      (idx===0?`<p>曲線上の2点 P, Q₁ を選びます(P ≠ Q₁)。薄い点線は次に引く直線の予告です。</p>`
+              :`<p>前回の <b class="cS">R${sub(i-1)} = ${ptS(Q)}</b> を新しい <b class="cQ">${Qn}</b> にします(Q ← R)。P はそのままです。薄い点線は次に引く直線の予告です。</p>`)+
+      `<span class="eq"><span class="cP">P</span> = ${ptS(P)}　検算: ${curTxt(P)}</span>
+       <span class="eq"><span class="cQ">${Qn}</span> = ${ptS(Q)}　検算: ${curTxt(Q)}</span>`});
+    steps.push({rd:idx,ph:1,title:`${i}回目 ② P と ${Qn} を通る直線(傾き m・切片 b)`,html:head+
+      `<p>傾きは「y の増え方 ÷ x の増え方」です。</p>
+       <span class="eq">m = (y_Q ${MINUS} y_P) / (x_Q ${MINUS} x_P)<br>　= (${fs(Q.y)} ${MINUS} ${fp(P.y)}) / (${fs(Q.x)} ${MINUS} ${fp(P.x)})<br>　= ${fs(fsub(Q.y,P.y))} / ${fs(fsub(Q.x,P.x))} = <span class="hl">${fs(r.m)}</span></span>
+       <span class="eq">b = y_P ${MINUS} m·x_P = ${fs(P.y)} ${MINUS} ${fp(r.m)}×${fp(P.x)} = <span class="hl">${fs(r.b)}</span></span>
+       <span class="eq">直線: <span class="hl">y = ${fs(r.m)}·x ${r.b.n<0n?MINUS:"+"} ${fs(fabs(r.b))}</span></span>`});
+    steps.push({rd:idx,ph:2,title:`${i}回目 ③ 直線と曲線の3つ目の交点 R'`,html:head+
+      `<p>直線を曲線の式に代入すると x の3次方程式になり、<b>3つの解の和 = m²</b>(解と係数の関係)です。</p>
+       <span class="eq">x₃ = m² ${MINUS} x_P ${MINUS} x_Q = (${fs(r.m)})² ${MINUS} ${fp(P.x)} ${MINUS} ${fp(Q.x)} = <span class="hl">${fs(r.Rp.x)}</span></span>
+       <span class="eq">y₃ = m·x₃ + b = ${fp(r.m)}×${fp(r.Rp.x)} + ${fp(r.b)} = <span class="hl">${fs(r.Rp.y)}</span></span>
+       <span class="eq"><span class="cR">R'</span> = ${ptS(r.Rp)}　検算: ${curTxt(r.Rp)}</span>
+       <p class="note">分数が長いときは小数で近似表示します(内部は厳密な分数で計算)。</p>`});
+    steps.push({rd:idx,ph:3,title:`${i}回目 ④ x軸で反転して ${Rn} = P+${Qn}`,html:head+
+      `<p>交点 R' はまだ答えではありません。<b>x軸で折り返した(y の符号を反転した)点</b>が ${Rn} = P+${Qn} です。</p>
+       <span class="eq">${Rn} = (x₃, ${MINUS}y₃) = (${fs(r.Rp.x)}, ${MINUS}${fp(r.Rp.y)}) = <span class="hl cS">${ptS(rd.R)}</span></span>
+       <span class="eq sub">検算: ${curTxt(rd.R)} → 曲線上</span>${nextTxt}`});
+  });
+  return steps;
+}
+function drawScene(rounds,g,W,s,t){
+  const v=view(W);drawBase(g,W,v);
+  const X=q=>v.X(fnum(q.x)),Y=q=>v.Y(fnum(q.y));
+  LINES=0;
+  const rd=s.rd,ph=s.ph,a=ease(t),cur=rounds[rd];
+  const labels=new Map(),extra=[];
+  const add=(q,name,col,size,big)=>{const k=fs(q.x)+","+fs(q.y);if(!labels.has(k))labels.set(k,{q,names:[],col,size,big:false});const e=labels.get(k);if(!e.names.includes(name))e.names.push(name);if(big)e.big=true;if(size>=e.size){e.size=size;e.col=col}};
+  // 過去の直線は全て残す (直前の回は濃く)
+  for(let j=0;j<rd;j++){const o=rounds[j];
+    drawLine(g,v,o.P,o.Q,o.r,o.kind,1,j===rd-1?"rgba(224,120,40,.9)":"rgba(224,136,63,.6)",j===rd-1?2.8:2.2);
+    add(o.Q,"Q"+sub(o.i),C.Q,4);add(o.R,"R"+sub(o.i),C.S,5)}
+  const hlRing=(q,k)=>{if(t<1)ringAt(g,X(q),Y(q),10+10*Math.sin(t*3.14),k||C.HL)};
+  if(ph===0)drawLine(g,v,cur.P,cur.Q,cur.r,cur.kind,1,"rgba(232,89,12,.6)",2.2,[7,6]);
+  else drawLine(g,v,cur.P,cur.Q,cur.r,cur.kind,ph===1?a:1,ph===1?C.HL:"#e8590c",ph===1?3.8:3.2);
+  // 傾きの三角形
+  if(ph===1&&cur.kind==="add"){
+    const ax=X(cur.P),ay=Y(cur.P),bx=X(cur.Q),by=Y(cur.Q);
+    g.save();g.setLineDash([6,5]);g.strokeStyle=C.HL;g.lineWidth=2;g.beginPath();
+    g.moveTo(ax,ay);g.lineTo(ax+(bx-ax)*Math.min(1,a*2),ay);if(a>.5){g.moveTo(bx,ay);g.lineTo(bx,ay+(by-ay)*(a-.5)*2)}g.stroke();g.restore();
+    if(a>.8){halo(g,"Δx="+fs(fsub(cur.Q.x,cur.P.x)),(ax+bx)/2,ay+(by<ay?16:-16),C.HL,"bold 12px sans-serif","center");halo(g,"Δy="+fs(fsub(cur.Q.y,cur.P.y)),bx+6,(ay+by)/2,C.HL,"bold 12px sans-serif","left")}
+  }
+  add(cur.Q,"Q"+sub(cur.i),C.Q,7,true);
+  if(ph===0)hlRing(cur.Q,C.Q);
+  if(ph>=2){const b=ph===2?Math.min(1,a*1.5):1;dotAt(g,X(cur.r.Rp),Y(cur.r.Rp),7*(.3+.7*b),C.R);extra.push({q:cur.r.Rp,txt:"R'",col:C.R,size:7});if(ph===2)hlRing(cur.r.Rp)}
+  if(ph>=3){
+    g.save();g.setLineDash([6,5]);g.strokeStyle=C.S;g.lineWidth=2.5;g.beginPath();
+    g.moveTo(X(cur.r.Rp),Y(cur.r.Rp));g.lineTo(X(cur.r.Rp),Y(cur.r.Rp)+(Y(cur.R)-Y(cur.r.Rp))*Math.min(1,a*1.6));g.stroke();g.restore();
+    if(a>.6||t>=1){add(cur.R,"R"+sub(cur.i),C.S,8,true);hlRing(cur.R)}
+  }
+  add(PP,"P",C.P,8,true); // P は常に目立つ色で表示
+  // ラベル配置: 重ならない位置を自動で探し、離れたら引き出し線を引く
+  const items=[];
+  labels.forEach(e=>{dotAt(g,X(e.q),Y(e.q),e.size,e.col);items.push({q:e.q,txt:e.names.join(" = ")+(e.names.includes("P")?" "+ptS(e.q):""),col:e.col,size:e.size,pri:e.big?0:1})});
+  extra.forEach(e=>items.push({...e,pri:0}));
+  items.sort((p1,p2)=>p1.pri-p2.pri);
+  const placed=[];
+  if(s.ph===1&&cur.kind==="add"){placed.push({x:X(cur.P)-60,y:Math.min(Y(cur.P),Y(cur.Q))-30,w:(X(cur.Q)-X(cur.P))+120,h:Math.abs(Y(cur.P)-Y(cur.Q))+60})}
+  const dots=[];items.forEach(it=>dots.push([X(it.q),Y(it.q),it.size+2]));
+  const hit=(r)=>{if(r.x<2||r.y<2||r.x+r.w>W-2||r.y+r.h>W-2)return 1e6;let c=0;
+    for(const p of placed){const ox=Math.min(r.x+r.w,p.x+p.w)-Math.max(r.x,p.x),oy=Math.min(r.y+r.h,p.y+p.h)-Math.max(r.y,p.y);if(ox>0&&oy>0)c+=ox*oy}
+    for(const d of dots){const ox=Math.min(r.x+r.w,d[0]+d[2])-Math.max(r.x,d[0]-d[2]),oy=Math.min(r.y+r.h,d[1]+d[2])-Math.max(r.y,d[1]-d[2]);if(ox>0&&oy>0)c+=ox*oy}
+    return c};
+  const dirs=[[1,-1],[1,1],[-1,-1],[-1,1],[0,-1],[0,1],[1,0],[-1,0]];
+  items.forEach(it=>{
+    const font=(it.pri===0?"bold 12.5px":"bold 11.5px")+" sans-serif";g.font=font;
+    const w=g.measureText(it.txt).width+4,h=16,qx=X(it.q),qy=Y(it.q);
+    let best=null,bc=1e18;
+    for(const rad of[10,26,46,70]){
+      for(const[dx,dy] of dirs){
+        const cx=qx+dx*(rad+(dx<0?0:0)),cy=qy+dy*(rad*(dx===0?1:.8));
+        const r={x:dx>0?cx:dx<0?cx-w:cx-w/2,y:cy-h/2,w,h};
+        const c=hit(r)+rad*3;if(c<bc){bc=c;best={r,rad}}
+        if(hit(r)===0)break}
+      if(bc<rad*3+1)break}
+    const r=best.r;placed.push(r);
+    if(best.rad>14){g.save();g.strokeStyle=it.col;g.lineWidth=1;g.globalAlpha=.7;g.beginPath();g.moveTo(qx,qy);g.lineTo(Math.max(r.x,Math.min(qx,r.x+r.w)),r.y+r.h/2);g.stroke();g.restore()}
+    halo(g,it.txt,r.x+2,r.y+h/2,it.col,font,"left");
+  });
+}
+
+/* ============ 初期化 ============ */
+(function(){
+  const rounds=buildRounds();
+  const pts=[PP,Q1];rounds.forEach(o=>{pts.push(o.r.Rp,o.R)});
+  setView(pts);
+  const pl=new Player({canvas:document.getElementById("cv"),ctl:document.getElementById("ctl"),panel:document.getElementById("pn"),steps:buildSteps(rounds),
+    draw(g,W,s,t){drawScene(rounds,g,W,s,t)}});
+  window.__pl=pl;window.__lines=()=>LINES;window.__rounds=rounds;
+})();
+
+/* ============ 追記: R の連鎖と、実際に暗号化される文字列 ============ */
+(function(){
+  const sec=document.getElementById("crypto");
+  const mono=x=>`<span class="mono">${x}</span>`;
+  /* --- 1. 橋渡し: 実数曲線での比較 --- */
+  const seqA=[],seqB=[];
+  {let R=PP;for(let n=2;n<=5;n++){R=realAdd(R,PP).S;seqA.push([n,R])}
+   const rs=buildRounds();rs.slice(0,4).forEach(o=>seqB.push([o.i,o.R]))}
+  /* --- 2. mod p の曲線 --- */
+  const p=97,CA=1,CB=1,md=a=>((a%p)+p)%p;
+  const egcdInv=a=>{let r0=p,r1=md(a),s0=0,s1=1;while(r1){const q=Math.floor(r0/r1);[r0,r1]=[r1,r0-q*r1];[s0,s1]=[s1,s0-q*s1]}return md(s0)};
+  const onC=q=>q===null||md(q[1]*q[1])===md(q[0]**3+CA*q[0]+CB);
+  const pts=[];for(let x=0;x<p;x++)for(let y=0;y<p;y++)if(onC([x,y]))pts.push([x,y]);
+  const Pb=[3,15]; // 基点 P
+  function mAdd(A,B){
+    const dbl=A[0]===B[0]&&A[1]===B[1];
+    if(A[0]===B[0]&&!dbl)return{res:null};
+    const num=dbl?md(3*A[0]*A[0]+CA):md(B[1]-A[1]),den=dbl?md(2*A[1]):md(B[0]-A[0]);
+    const inv=egcdInv(den),m=md(num*inv),x3=md(m*m-A[0]-B[0]),y3=md(m*(x3-A[0])+A[1]);
+    const Rp=[x3,y3],R=[x3,md(-y3)];
+    if(!onC(Rp)||!onC(R))console.warn("ASSERT: mod p の加算結果が曲線上にありません",A,B,R);
+    return{dbl,num,den,inv,m,Rp,res:R};
+  }
+  // 位数 (基点 P)
+  let order=1;{let R=Pb;while(R){R=mAdd(R,Pb).res;order++;if(order>500)break}}
+  if(order!==pts.length+1)console.warn("基点の位数が曲線全体の位数と異なります",order,pts.length+1);
+  if(!onC(Pb))console.warn("ASSERT: 基点 P が曲線上にありません");
+  // k 倍を 1 ステップずつ
+  function chain(base,k){const rows=[];let R=base;for(let n=2;n<=k;n++){const d=mAdd(R,base);rows.push({n,prev:R,d});R=d.res}return{rows,res:R}}
+  const a=6,b=4;
+  const Ach=chain(Pb,a),Bch=chain(Pb,b);const A=Ach.res,B=Bch.res;
+  const AB=chain(B,a),BA=chain(A,b);const SA=AB.res,SB=BA.res;
+  if(SA[0]!==SB[0]||SA[1]!==SB[1])console.warn("ASSERT: Alice と Bob の共有点 S が一致しません",SA,SB);
+  const S=SA,key=S[0]%256;
+  const pt2=q=>q?`(${q[0]}, ${q[1]})`:"O";
+  const rowsHtml=(ch,bn)=>ch.rows.map(r=>{const d=r.d;
+    return `<tr><td>${r.n}${bn}</td><td>${bn==="P"?"":""}${pt2(r.prev)} + ${pt2(ch.base||r.base)}</td><td>${d.dbl?"接線":"割線"}</td><td>${mono(`m = ${d.num} × ${d.den}⁻¹ = ${d.num} × ${d.inv} ≡ ${d.m}`)}</td><td>${pt2(d.Rp)}</td><td><b>${pt2(d.res)}</b></td></tr>`}).join("");
+  const tbl=(title,ch,base,bn)=>{ch.base=base;return `<h3>${title}</h3><div class="wrap"><table><thead><tr><th>求める点</th><th>前回の点 + ${bn}</th><th>直線</th><th>傾き m (mod ${p}、逆元は拡張ユークリッド法)</th><th>R'</th><th>R(反転後)</th></tr></thead><tbody>${rowsHtml(ch,bn)}</tbody></table></div>`};
+  // 暗号化
+  const text="abcd",bytes=[...text].map(c=>c.charCodeAt(0)),enc=bytes.map(v=>v^key),dec=enc.map(v=>v^key);
+  if(String.fromCharCode(...dec)!==text)console.warn("ASSERT: 復号に失敗");
+  const hx=v=>v.toString(16).padStart(2,"0");
+  const f4=q=>`(${fs(q.x)}, ${fs(q.y)})`;
+  sec.innerHTML=`
+  <h2>R が変わっていく様子と、文字列 abcd の暗号化</h2>
+  <h3>1. 上のアニメで起きていること</h3>
+  <p>上のアニメの R の連鎖は「点を何回足すか」のくり返しで、<b>点 P を n 倍する(nP を求める)操作そのもの</b>です。「R がどんどん変わる」=「n を増やして nP を求めている」です。</p>
+  <p>ただし上のアニメは Q₁ = (−1, 1) から始めているので、R<sub>n</sub> = nP + Q₁ になっています。暗号では Q ← P(最初の回は接線)から始め、2P, 3P, 4P, … と R を1つずつ変えていきます。</p>
+  <div class="wrap"><table><thead><tr><th>回</th><th>上のアニメ (Q₁ = (−1, 1) から)</th><th>暗号の使い方 (Q ← P から)</th></tr></thead><tbody>
+  ${seqB.map((r,i)=>`<tr><td>${i+1}</td><td>R${sub(r[0])} = ${f4(r[1])}</td><td>${seqA[i][0]}P = ${f4(seqA[i][1])}</td></tr>`).join("")}
+  </tbody></table></div>
+  <p class="note">実数の曲線では 4〜5 回で座標が長い分数に膨らむため、暗号には使えません(上の表の ≈ は近似表示)。</p>
+  <h3>2. 実際の流れ(文字列は直接暗号化しない)</h3>
+  <p>ECC は文字列を直接暗号化しません。<b>楕円曲線で「二人だけが知る共通の点 S」を作り(ECDH)、S から鍵を作って、その鍵で文字列を暗号化</b>します。abcd = 61 62 63 64(16進)= 97, 98, 99, 100 です。</p>
+  <p>以下は小さな玩具の例です。実数だと座標が膨らむので、<b>このセクションだけ整数 mod ${p} の曲線</b>を使います(本物は P-256 や X25519 で何倍も大きい)。</p>
+  <div class="eq" style="display:block;margin:6px 0;padding:6px 10px;background:#f1f4fa;border-left:4px solid var(--HL);border-radius:4px"><span class="mono">曲線: y² = x³ + ${CA}x + ${CB} (mod ${p})(全 ${pts.length+1} 点、位数は素数)<br>基点 P = ${pt2(Pb)}(位数 ${order}、検算: ${Pb[1]}² ≡ ${md(Pb[1]**2)}、${Pb[0]}³+${CA}·${Pb[0]}+${CB} ≡ ${md(Pb[0]**3+CA*Pb[0]+CB)})<br>Alice の秘密数 a = ${a}、Bob の秘密数 b = ${b}</span></div>
+  <h3>3. (a) 公開値を作る: P を 1 ステップずつ足す</h3>
+  <p>Alice は P → 2P → … → aP、Bob は P → … → bP を求めます(各回「前回の点 + P」。2P だけは同じ点どうしなので接線)。</p>
+  ${tbl(`Alice: A = ${a}P`,Ach,Pb,"P")}
+  <p>Alice の公開値 <b>A = ${a}P = ${pt2(A)}</b></p>
+  ${tbl(`Bob: B = ${b}P`,Bch,Pb,"P")}
+  <p>Bob の公開値 <b>B = ${b}P = ${pt2(B)}</b></p>
+  <h3>(b) A と B を交換する</h3>
+  <p>盗聴者に見えるのは 曲線、P = ${pt2(Pb)}、A = ${pt2(A)}、B = ${pt2(B)} で、a と b は見えません(A から a を逆算するのが困難、が安全性の根拠)。</p>
+  <h3>(c) 共通の点 S を作る</h3>
+  <p>Alice は自分の a を、受け取った B に使います: S = a·B。</p>
+  ${tbl(`Alice: S = ${a}·B(B = ${pt2(B)} を足していく)`,AB,B,"B")}
+  <p>Bob は自分の b を、受け取った A に使います: S = b·A。</p>
+  ${tbl(`Bob: S = ${b}·A(A = ${pt2(A)} を足していく)`,BA,A,"A")}
+  <p><b>Alice の S = ${pt2(SA)}、Bob の S = ${pt2(SB)}</b>。${SA[0]===SB[0]&&SA[1]===SB[1]?"一致しました(どちらも abP)。":"一致しません。"}</p>
+  <h3>(d) 鍵を作って文字列を暗号化(XOR)</h3>
+  <p>鍵 key = S の x 座標を 0〜255 に畳んだ 1 バイト = ${S[0]} mod 256 = <b>${key}</b>(16進 ${hx(key)})。暗号化は各バイトと key の XOR です(説明用のおもちゃ。実際は S から鍵を導出し、AES-GCM などを使います)。</p>
+  <div class="wrap"><table><thead><tr><th>文字</th>${[...text].map(c=>`<th>'${c}'</th>`).join("")}</tr></thead><tbody>
+  <tr><td>平文(10進)</td>${bytes.map(v=>`<td class="mono">${v}</td>`).join("")}</tr>
+  <tr><td>平文(16進)</td>${bytes.map(v=>`<td class="mono">${hx(v)}</td>`).join("")}</tr>
+  <tr><td>key</td>${bytes.map(()=>`<td class="mono">${hx(key)}</td>`).join("")}</tr>
+  <tr><td>XOR = 暗号文(16進)</td>${enc.map(v=>`<td class="mono"><b>${hx(v)}</b></td>`).join("")}</tr>
+  <tr><td>Bob が同じ key で XOR</td>${dec.map(v=>`<td class="mono">${hx(v)}</td>`).join("")}</tr>
+  <tr><td>復号結果</td>${dec.map(v=>`<td class="mono"><b>${String.fromCharCode(v)}</b></td>`).join("")}</tr>
+  </tbody></table></div>
+  <p>暗号文 ${mono(enc.map(hx).join(" "))} を Bob が key = ${key} で XOR すると ${mono(dec.map(hx).join(" "))} = <b>${String.fromCharCode(...dec)}</b> に戻ります。</p>`;
+  window.__crypto={A,B,SA,SB,key,enc:enc.map(hx).join(" "),order};
+})();
+</script>
+</body>
+</html>
