@@ -158,11 +158,11 @@
      "points": null,
      "prompt": "<p>図9中の [ a ] 〜 [ h ] に入れる適切な字句を、解答群の中から選び、記号で答えよ。</p><p>解答群<br>ア Certificate<br>イ Certificate Verify<br>ウ Client Hello<br>エ CONNECT ○○○.○○○.○○○.○○○:443 HTTP/1.1<br>オ CONNECT www.a-sha.co.jp:443 HTTP/1.1<br>カ Finished<br>キ GET /campaign/□□□ HTTP/1.1<br>ク HTTPステータスコード 101 (Switching Protocols)<br>ケ HTTPステータスコード 200 (OK)<br>コ Server Hello</p>",
      "answerType": "blank",
-     "answerExample": "a: エ<br>b: ケ<br>c: ウ<br>d: コ<br>e: ア<br>f: イ<br>g: カ<br>h: キ",
+     "answerExample": "a: オ<br>b: ケ<br>c: ウ<br>d: コ<br>e: ア<br>f: イ<br>g: カ<br>h: キ",
      "blanks": [
       {
        "key": "a",
-       "answer": "エ"
+       "answer": "オ"
       },
       {
        "key": "b",
@@ -195,7 +195,7 @@
      ],
      "keyPoints": [
       {
-       "text": "a:エ b:ケ(プロキシへのCONNECTとその成功応答)",
+       "text": "a:オ b:ケ(プロキシへのCONNECT www.a-sha.co.jp:443 とその成功応答200)",
        "point": null
       },
       {
@@ -213,8 +213,8 @@
      ],
      "comment": null,
      "explain": {
-      "conclusion": "a=エ、b=ケ、c=ウ、d=コ、e=ア、f=イ、g=カ、h=キである。",
-      "basis": "通信解析ツールはプロキシとして動作するため、スマホはまずプロキシにHTTPSトンネルを要求するCONNECTメソッドを送り(a)、ツールが200 OKで応答する(b)。その後TLS 1.3のハンドシェイクが始まり、クライアントがClient Hello(c)を送ると、サーバ側(ツール)はServer Hello(d)、Encrypted Extensions、Certificate(e)、Certificate Verify(f)、Finished(g)の順にまとめて送り、クライアントもFinished(g)を返す。確立後にスマホはGET /campaign/□□□(h)を暗号化して送り、ツールがA社Webサーバと同様のTLSを行ってhを転送する。なおaはツールのプライベートIPアドレスを指すエとするのが公式の正答であり、公式の正答に従う。",
+      "conclusion": "a=オ、b=ケ、c=ウ、d=コ、e=ア、f=イ、g=カ、h=キである。",
+      "basis": "通信解析ツールはプロキシとして動作するため、スマホはまずプロキシにHTTPSトンネルを要求するCONNECTメソッドを送り(a)、ツールが200 OKで応答する(b)。その後TLS 1.3のハンドシェイクが始まり、クライアントがClient Hello(c)を送ると、サーバ側(ツール)はServer Hello(d)、Encrypted Extensions、Certificate(e)、Certificate Verify(f)、Finished(g)の順にまとめて送り、クライアントもFinished(g)を返す。確立後にスマホはGET /campaign/□□□(h)を暗号化して送り、ツールがA社Webサーバと同様のTLSを行ってhを転送する。CONNECTメソッドには接続先として、スマホアプリが最終的に接続するwww.a-sha.co.jp:443を指定する(オ)。エのIPアドレス指定は、アプリがFQDNで接続している本問の状況に合わない。",
       "pitfalls": [
        "TLS 1.3ではServer Helloの後のEncrypted Extensions以降は暗号化されて送られる。順序はCertificate→Certificate Verify→Finished。",
        "ク(101 Switching Protocols)はWebSocketなどのプロトコル切替えで、CONNECTの成功応答は200。"

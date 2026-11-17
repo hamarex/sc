@@ -44,6 +44,8 @@ node tools/build_data.js          # docs/data.js を再生成
 node tools/validate.js --strict   # 期待: ERROR 0 / WARN 0
 node tools/test_logic.js          # 期待: 23件通過
 open docs/index.html              # 動作確認
+node tools/verify_am_answers.js am1   # 午前答の照合(am2 も)
+(cd tools/e2e && node run.js)        # ブラウザ検証
 ```
 
 - データの修正は `tools/work/` の JSON を直し、`build_data.js` で `docs/data.js` を作り直す。`docs/data.js` を直接編集しない。
@@ -51,16 +53,16 @@ open docs/index.html              # 動作確認
 
 ## 5. 残課題
 
-1. **午前の正解・解説の再照合(未実施・優先度高)**
-   - 担当B・Cは取り込み時に公式の解答PDFと照合したと報告している。しかし統合時の検証は機械的な整合チェックだけで、正解番号の再照合はしていない。
-   - 対象は午前I 240問、午前II 200問。公式の解答PDF(`past_exam/*_ans.pdf`、テキスト層あり)と `tools/work/exams/` の answer を機械的に突き合わせる。
-   - 午後は解答例・採点キーポイントを、抜き取りで公式の解答PDFと照合する。
-2. **午後の配点が未取得**
-   - 大問の配点(`points`)は全て null。現状は区分の満点を選択数で等分している。公式の配点を取れれば、午後の得点表示を正確にできる。
+1. **午前・午後の照合(完了)**
+   - 午前440問(午前I 240・午前II 200)を公式解答PDFと照合済み。不一致0(`node tools/verify_am_answers.js am1|am2`)。2022h am1 は画像を目視転記して照合。
+   - 午後は全35大問を機械照合し、2025春 問3 設問2(2)を修正済み。
+2. **午後の配点(確定)**
+   - 公式PDFに配点の記載がないため取得不可。現状どおり区分の満点を選択数で等分する。
 3. **解説の内容確認(任意)**
    - 解説は全問に付いている(欠落0)が、内容は生成物。誤り選択肢の指摘や、午後の記述の根拠に誤りがないか抜き取りでレビューするとよい。
-4. **ブラウザ検証スクリプトの所在**
-   - 動作確認用の e2e スクリプトは、前の環境の一時フォルダ(Claude の scratchpad)にある。引継ぎ先には無い可能性が高い。必要なら Playwright などで作り直す。
+4. **ブラウザ検証スクリプト(再作成済み)**
+   - `tools/e2e` に Playwright で再作成済み(`cd tools/e2e && node run.js`、37件通過)。
+
 
 ## 6. 既知の注意点
 
