@@ -340,88 +340,42 @@ function drawScene(rounds,g,W,s,t){
   window.__pl=pl;window.__lines=()=>LINES;window.__rounds=rounds;
 })();
 
-/* ============ 追記: R の連鎖と、実際に暗号化される文字列 ============ */
+/* ============ 追記: 表と数値の計算(文章は別途用意されたものをそのまま埋め込み) ============ */
 (function(){
+  const TEXT="<h2>R が変わっていく様子と、文字列 abcd の暗号化</h2><p>上のアニメで「前回の点に P を足す」を繰り返していた作業は、暗号で「P を a 回足す（aP と書く）」とまったく同じものです。ここでは、暗号と同じ仕組みを小さな数字の玩具で再現し、abcd を送るまでを順に見ていきます。</p><div class=\"eq\" style=\"display:block;margin:8px 0;padding:8px 12px;background:#f1f4fa;border-left:4px solid var(--HL);border-radius:4px;font-size:14px\"><b>凡例</b><ul style=\"margin:4px 0 0 18px;padding:0\"><li>(x,y) は点の位置です。横が x、縦が y を表します。</li><li>mod 97 は「97 で割った余りだけを使う計算」です。時計の針が一周して戻るように、数は 0 から 96 の間で循環します。実際の暗号でも座標は整数で、この余りの世界で計算します。</li><li>P はみんなが知っている出発点です。</li><li>aP は P を a 回足した点です。</li><li>a は足す回数で、秘密の数です。人に見せません。</li><li>R は 1 回足すたびに変わる点です。</li><li>「点を足す」とは、2 点を通る直線を引き、曲線と交わる 3 つ目の点を x 軸で上下反転させた点を求めることです。計算の詳細は省略します。</li></ul></div><h3>1. 使う曲線と出発点</h3><p>みんなが使う曲線は、楕円曲線（y²=x³+x+1 という式で描かれる曲線）の mod 97 版です。出発点は P=(3,15) で、この曲線の上にあります。全員が曲線と P を知っていて、秘密にするのは「何回足したか」だけです。</p><h3>2. Alice が P を 6 回足す</h3><p>Alice は秘密の回数 a=6 を選び、P を 6 回足していきます。P→2P→3P→4P→5P→6P と、R が 1 つずつ変わっていきます。最後の点 A=6P=(14,72) を公開（みんなに見せること）します。</p><p>途中の点は {{2P}}、{{3P}}、{{4P}}、{{5P}} です。</p>{{TABLE2}}<h3>3. Bob が P を 4 回足す</h3><p>Bob も同じように、秘密の回数 b=4 を選んで、P を 4 回足して B を作ります（P→2P→3P→4P）。その結果、B=4P=(15,44) を公開します。途中の点は {{2P}}、{{3P}} です。</p><h3>4. A と B を交換する</h3><p>Alice は A を、Bob は B を相手に伝えます。盗聴者（通信を横から聞いている人）に見えるのは、曲線・P・A・B です。見えないのは a=6 と b=4 だけです。A から 6 を割り出すのは、数が大きいと事実上不可能です。</p><h3>5. 同じ点 S ができる理由</h3><p>Alice は受け取った B を 6 回足し、Bob は受け取った A を 4 回足します。どちらも P を 6×4=24 回足した点になるので、同じ点 S=(33,88) になります。足す回数は掛け算で合わさり、掛ける順番を変えても結果は同じです。この S が、二人だけの共通の秘密になります。</p><h3>6. S を鍵にして abcd を暗号化する</h3><p>S の x 座標（横の位置）33 を鍵にします。鍵とは、文字を変換するための数のことです。abcd の各文字コード（文字に割り当てられた番号）と鍵 33（16進 21。0〜9 と a〜f で数える書き方）を XOR（2 つの数の各桁を比べて、違うときだけ 1 になる計算）すると、40 43 42 45（16進）になります。</p><p>Bob も同じ鍵で同じ XOR を行うと、abcd に戻ります。ここで使った XOR は説明用のおもちゃで、実際は AES-GCM（広く使われる暗号方式の一つ）などを使います。</p>{{TABLE6}}<p><b>ECC 自体は文字を直接暗号化せず、ECC で共通の秘密 S を作って、それを鍵に別の暗号で文字を暗号化する。</b></p><hr><p>上のアニメで R が変わっていく様子は、Alice と Bob が P を足し続けている作業そのものです。</p>";
   const sec=document.getElementById("crypto");
-  const mono=x=>`<span class="mono">${x}</span>`;
-  /* --- 1. 橋渡し: 実数曲線での比較 --- */
-  const seqA=[],seqB=[];
-  {let R=PP;for(let n=2;n<=5;n++){R=realAdd(R,PP).S;seqA.push([n,R])}
-   const rs=buildRounds();rs.slice(0,4).forEach(o=>seqB.push([o.i,o.R]))}
-  /* --- 2. mod p の曲線 --- */
-  const p=97,CA=1,CB=1,md=a=>((a%p)+p)%p;
-  const egcdInv=a=>{let r0=p,r1=md(a),s0=0,s1=1;while(r1){const q=Math.floor(r0/r1);[r0,r1]=[r1,r0-q*r1];[s0,s1]=[s1,s0-q*s1]}return md(s0)};
+  const p=97,CA=1,CB=1,md=v=>((v%p)+p)%p;
+  const inv=v=>{let r0=p,r1=md(v),s0=0,s1=1;while(r1){const q=Math.floor(r0/r1);[r0,r1]=[r1,r0-q*r1];[s0,s1]=[s1,s0-q*s1]}return md(s0)};
   const onC=q=>q===null||md(q[1]*q[1])===md(q[0]**3+CA*q[0]+CB);
-  const pts=[];for(let x=0;x<p;x++)for(let y=0;y<p;y++)if(onC([x,y]))pts.push([x,y]);
-  const Pb=[3,15]; // 基点 P
+  const Pb=[3,15];
+  if(!onC(Pb))console.warn("ASSERT: 出発点 P が曲線上にありません");
   function mAdd(A,B){
     const dbl=A[0]===B[0]&&A[1]===B[1];
     if(A[0]===B[0]&&!dbl)return{res:null};
     const num=dbl?md(3*A[0]*A[0]+CA):md(B[1]-A[1]),den=dbl?md(2*A[1]):md(B[0]-A[0]);
-    const inv=egcdInv(den),m=md(num*inv),x3=md(m*m-A[0]-B[0]),y3=md(m*(x3-A[0])+A[1]);
+    const m=md(num*inv(den)),x3=md(m*m-A[0]-B[0]),y3=md(m*(x3-A[0])+A[1]);
     const Rp=[x3,y3],R=[x3,md(-y3)];
-    if(!onC(Rp)||!onC(R))console.warn("ASSERT: mod p の加算結果が曲線上にありません",A,B,R);
-    return{dbl,num,den,inv,m,Rp,res:R};
+    if(!onC(Rp)||!onC(R))console.warn("ASSERT: 加算結果が曲線上にありません",A,B,R);
+    return{res:R};
   }
-  // 位数 (基点 P)
-  let order=1;{let R=Pb;while(R){R=mAdd(R,Pb).res;order++;if(order>500)break}}
-  if(order!==pts.length+1)console.warn("基点の位数が曲線全体の位数と異なります",order,pts.length+1);
-  if(!onC(Pb))console.warn("ASSERT: 基点 P が曲線上にありません");
-  // k 倍を 1 ステップずつ
-  function chain(base,k){const rows=[];let R=base;for(let n=2;n<=k;n++){const d=mAdd(R,base);rows.push({n,prev:R,d});R=d.res}return{rows,res:R}}
+  function chain(base,k){const pts=[base];let R=base;for(let n=2;n<=k;n++){R=mAdd(R,base).res;pts.push(R)}return pts} // pts[n-1] = n*base
   const a=6,b=4;
-  const Ach=chain(Pb,a),Bch=chain(Pb,b);const A=Ach.res,B=Bch.res;
-  const AB=chain(B,a),BA=chain(A,b);const SA=AB.res,SB=BA.res;
-  if(SA[0]!==SB[0]||SA[1]!==SB[1])console.warn("ASSERT: Alice と Bob の共有点 S が一致しません",SA,SB);
-  const S=SA,key=S[0]%256;
-  const pt2=q=>q?`(${q[0]}, ${q[1]})`:"O";
-  const rowsHtml=(ch,bn)=>ch.rows.map(r=>{const d=r.d;
-    return `<tr><td>${r.n}${bn}</td><td>${bn==="P"?"":""}${pt2(r.prev)} + ${pt2(ch.base||r.base)}</td><td>${d.dbl?"接線":"割線"}</td><td>${mono(`m = ${d.num} × ${d.den}⁻¹ = ${d.num} × ${d.inv} ≡ ${d.m}`)}</td><td>${pt2(d.Rp)}</td><td><b>${pt2(d.res)}</b></td></tr>`}).join("");
-  const tbl=(title,ch,base,bn)=>{ch.base=base;return `<h3>${title}</h3><div class="wrap"><table><thead><tr><th>求める点</th><th>前回の点 + ${bn}</th><th>直線</th><th>傾き m (mod ${p}、逆元は拡張ユークリッド法)</th><th>R'</th><th>R(反転後)</th></tr></thead><tbody>${rowsHtml(ch,bn)}</tbody></table></div>`};
-  // 暗号化
-  const text="abcd",bytes=[...text].map(c=>c.charCodeAt(0)),enc=bytes.map(v=>v^key),dec=enc.map(v=>v^key);
+  const Ap=chain(Pb,a),Bp=chain(Pb,b),A=Ap[a-1],B=Bp[b-1];
+  const ABp=chain(B,a),BAp=chain(A,b),SA=ABp[a-1],SB=BAp[b-1];
+  if(SA[0]!==SB[0]||SA[1]!==SB[1])console.warn("ASSERT: Alice と Bob の S が一致しません",SA,SB);
+  const S=SA,P24=chain(Pb,a*b)[a*b-1];
+  if(P24[0]!==S[0]||P24[1]!==S[1])console.warn("ASSERT: S が P を 24 回足した点と一致しません",S,P24);
+  const key=S[0]%256,text="abcd",bytes=[...text].map(c=>c.charCodeAt(0)),enc=bytes.map(v=>v^key),dec=enc.map(v=>v^key);
   if(String.fromCharCode(...dec)!==text)console.warn("ASSERT: 復号に失敗");
-  const hx=v=>v.toString(16).padStart(2,"0");
-  const f4=q=>`(${fs(q.x)}, ${fs(q.y)})`;
-  sec.innerHTML=`
-  <h2>R が変わっていく様子と、文字列 abcd の暗号化</h2>
-  <h3>1. 上のアニメで起きていること</h3>
-  <p>上のアニメの R の連鎖は「点を何回足すか」のくり返しで、<b>点 P を n 倍する(nP を求める)操作そのもの</b>です。「R がどんどん変わる」=「n を増やして nP を求めている」です。</p>
-  <p>ただし上のアニメは Q₁ = (−1, 1) から始めているので、R<sub>n</sub> = nP + Q₁ になっています。暗号では Q ← P(最初の回は接線)から始め、2P, 3P, 4P, … と R を1つずつ変えていきます。</p>
-  <div class="wrap"><table><thead><tr><th>回</th><th>上のアニメ (Q₁ = (−1, 1) から)</th><th>暗号の使い方 (Q ← P から)</th></tr></thead><tbody>
-  ${seqB.map((r,i)=>`<tr><td>${i+1}</td><td>R${sub(r[0])} = ${f4(r[1])}</td><td>${seqA[i][0]}P = ${f4(seqA[i][1])}</td></tr>`).join("")}
-  </tbody></table></div>
-  <p class="note">実数の曲線では 4〜5 回で座標が長い分数に膨らむため、暗号には使えません(上の表の ≈ は近似表示)。</p>
-  <h3>2. 実際の流れ(文字列は直接暗号化しない)</h3>
-  <p>ECC は文字列を直接暗号化しません。<b>楕円曲線で「二人だけが知る共通の点 S」を作り(ECDH)、S から鍵を作って、その鍵で文字列を暗号化</b>します。abcd = 61 62 63 64(16進)= 97, 98, 99, 100 です。</p>
-  <p>以下は小さな玩具の例です。実数だと座標が膨らむので、<b>このセクションだけ整数 mod ${p} の曲線</b>を使います(本物は P-256 や X25519 で何倍も大きい)。</p>
-  <div class="eq" style="display:block;margin:6px 0;padding:6px 10px;background:#f1f4fa;border-left:4px solid var(--HL);border-radius:4px"><span class="mono">曲線: y² = x³ + ${CA}x + ${CB} (mod ${p})(全 ${pts.length+1} 点、位数は素数)<br>基点 P = ${pt2(Pb)}(位数 ${order}、検算: ${Pb[1]}² ≡ ${md(Pb[1]**2)}、${Pb[0]}³+${CA}·${Pb[0]}+${CB} ≡ ${md(Pb[0]**3+CA*Pb[0]+CB)})<br>Alice の秘密数 a = ${a}、Bob の秘密数 b = ${b}</span></div>
-  <h3>3. (a) 公開値を作る: P を 1 ステップずつ足す</h3>
-  <p>Alice は P → 2P → … → aP、Bob は P → … → bP を求めます(各回「前回の点 + P」。2P だけは同じ点どうしなので接線)。</p>
-  ${tbl(`Alice: A = ${a}P`,Ach,Pb,"P")}
-  <p>Alice の公開値 <b>A = ${a}P = ${pt2(A)}</b></p>
-  ${tbl(`Bob: B = ${b}P`,Bch,Pb,"P")}
-  <p>Bob の公開値 <b>B = ${b}P = ${pt2(B)}</b></p>
-  <h3>(b) A と B を交換する</h3>
-  <p>盗聴者に見えるのは 曲線、P = ${pt2(Pb)}、A = ${pt2(A)}、B = ${pt2(B)} で、a と b は見えません(A から a を逆算するのが困難、が安全性の根拠)。</p>
-  <h3>(c) 共通の点 S を作る</h3>
-  <p>Alice は自分の a を、受け取った B に使います: S = a·B。</p>
-  ${tbl(`Alice: S = ${a}·B(B = ${pt2(B)} を足していく)`,AB,B,"B")}
-  <p>Bob は自分の b を、受け取った A に使います: S = b·A。</p>
-  ${tbl(`Bob: S = ${b}·A(A = ${pt2(A)} を足していく)`,BA,A,"A")}
-  <p><b>Alice の S = ${pt2(SA)}、Bob の S = ${pt2(SB)}</b>。${SA[0]===SB[0]&&SA[1]===SB[1]?"一致しました(どちらも abP)。":"一致しません。"}</p>
-  <h3>(d) 鍵を作って文字列を暗号化(XOR)</h3>
-  <p>鍵 key = S の x 座標を 0〜255 に畳んだ 1 バイト = ${S[0]} mod 256 = <b>${key}</b>(16進 ${hx(key)})。暗号化は各バイトと key の XOR です(説明用のおもちゃ。実際は S から鍵を導出し、AES-GCM などを使います)。</p>
-  <div class="wrap"><table><thead><tr><th>文字</th>${[...text].map(c=>`<th>'${c}'</th>`).join("")}</tr></thead><tbody>
-  <tr><td>平文(10進)</td>${bytes.map(v=>`<td class="mono">${v}</td>`).join("")}</tr>
-  <tr><td>平文(16進)</td>${bytes.map(v=>`<td class="mono">${hx(v)}</td>`).join("")}</tr>
-  <tr><td>key</td>${bytes.map(()=>`<td class="mono">${hx(key)}</td>`).join("")}</tr>
-  <tr><td>XOR = 暗号文(16進)</td>${enc.map(v=>`<td class="mono"><b>${hx(v)}</b></td>`).join("")}</tr>
-  <tr><td>Bob が同じ key で XOR</td>${dec.map(v=>`<td class="mono">${hx(v)}</td>`).join("")}</tr>
-  <tr><td>復号結果</td>${dec.map(v=>`<td class="mono"><b>${String.fromCharCode(v)}</b></td>`).join("")}</tr>
-  </tbody></table></div>
-  <p>暗号文 ${mono(enc.map(hx).join(" "))} を Bob が key = ${key} で XOR すると ${mono(dec.map(hx).join(" "))} = <b>${String.fromCharCode(...dec)}</b> に戻ります。</p>`;
-  window.__crypto={A,B,SA,SB,key,enc:enc.map(hx).join(" "),order};
+  const q2=q=>`(${q[0]}, ${q[1]})`,hx=v=>v.toString(16).padStart(2,"0");
+  const T=(head,rows)=>`<div class="wrap"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const tab2=T(["回数","前回の点 + P","新しい点"],Ap.map((q,i)=>[(i+1)+" 回目",i===0?"—":`${q2(Ap[i-1])} + P`,`<b>${i+1}P = ${q2(q)}</b>`]));
+  const tab6=T(["文字","文字コード","XOR 後"],bytes.map((v,i)=>[`'${text[i]}'`,v,`${v} XOR ${key} = <b>${enc[i]}</b>(16進 ${hx(enc[i])})`]));
+  const fill=TEXT.replace("{{TABLE2}}",tab2).replace("{{TABLE6}}",tab6).replace(/\{\{(\d+)([PBA])\}\}/g,(m,n,x)=>{n=+n;const pts=x==="B"?Bp:Ap;return `<b>${n}P=${q2(pts[n-1])}</b>`});
+  sec.innerHTML=fill;
+  // 文章中の数値が計算結果と一致するか検算
+  [`A=6P=(${A[0]},${A[1]})`,`B=4P=(${B[0]},${B[1]})`,`S=(${S[0]},${S[1]})`,`鍵 ${key}`,enc.map(hx).join(" ")].forEach(t=>{if(!TEXT.replace(/ /g," ").includes(t.replace(/^鍵 /,"鍵 ")))console.warn("文章中の数値が計算結果と一致しません:",t)});
+  window.__crypto={A,B,SA,SB,key,enc:enc.map(hx).join(" "),P24};
 })();
 </script>
 </body>
